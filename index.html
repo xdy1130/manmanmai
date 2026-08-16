@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="慢慢买">
+  <title>慢慢买</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="app-icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f7f4;
+      --surface: #ffffff;
+      --surface-2: #f0f1ed;
+      --text: #20221f;
+      --muted: #70756e;
+      --border: #dcded8;
+      --green: #24734a;
+      --green-soft: #e4f2e9;
+      --amber: #9a6512;
+      --amber-soft: #fff0d3;
+      --red: #a33b33;
+      --red-soft: #fbe6e3;
+      --blue: #356c87;
+      --shadow: 0 8px 24px rgba(32, 34, 31, .08);
+      font-family: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); letter-spacing: 0; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { max-width: 720px; min-height: 100dvh; margin: 0 auto; padding: env(safe-area-inset-top) 16px calc(92px + env(safe-area-inset-bottom)); }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 22px 0 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; background: var(--text); color: var(--bg); }
+    h1 { margin: 0; font-size: 22px; font-weight: 700; }
+    h2 { margin: 0; font-size: 18px; font-weight: 600; }
+    h3 { margin: 0; font-size: 15px; font-weight: 600; }
+    p { margin: 0; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .stack { display: grid; gap: 12px; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 20px 0 10px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .summary { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .summary strong { display: block; margin-top: 5px; font-size: 18px; overflow-wrap: anywhere; }
+    .summary span { font-size: 12px; color: var(--muted); }
+    .history-controls { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 10px; align-items: end; }
+    .segmented { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 8px; }
+    .segment-btn { min-height: 38px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-weight: 600; }
+    .segment-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(32,34,31,.12); }
+    .history-summary { margin-top: 12px; }
+    .history-chart { margin-top: 12px; padding: 12px 10px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+    .history-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .history-chart-title { font-size: 14px; font-weight: 600; }
+    .history-chart-svg { display: block; height: 220px; max-width: none; overflow: visible; }
+    .history-chart-empty { height: 220px; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+    .history-chart-plot { position: relative; }
+    .history-chart-scroll { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+    .history-chart-value-label { fill: var(--text); font-size: 11px; font-weight: 600; }
+    .history-chart-dot { cursor: crosshair; outline: none; }
+    .history-chart-dot:hover, .history-chart-dot:focus { r: 6; stroke: var(--surface); stroke-width: 3; }
+    .history-chart-tooltip { position: absolute; z-index: 2; transform: translate(-50%, calc(-100% - 10px)); min-width: 92px; padding: 7px 9px; border-radius: 7px; background: var(--text); color: var(--surface); box-shadow: var(--shadow); text-align: center; font-size: 12px; pointer-events: none; white-space: nowrap; }
+    .history-chart-tooltip strong { display: block; margin-top: 2px; font-size: 14px; }
+    .inventory-group { display: grid; gap: 8px; }
+    .inventory-group + .inventory-group { margin-top: 16px; }
+    .inventory-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 2px; }
+    .inventory-group-head strong { font-size: 14px; }
+    .inventory-thumb { width: 58px; height: 58px; flex: 0 0 58px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); }
+    .inventory-item-with-image { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .inventory-image-preview { display: none; width: 88px; height: 88px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+    .inventory-image-preview.visible { display: block; }
+    .field-help { margin-top: -2px; color: var(--muted); font-size: 11px; font-weight: 400; line-height: 1.4; }
+    .quick-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -1px; }
+    .quick-option { min-height: 28px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11px; }
+    .quick-option:active { background: var(--surface); color: var(--text); }
+    label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
+    input, select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px; background: var(--surface); color: var(--text); outline: none; }
+    input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(53,108,135,.13); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .span-2 { grid-column: span 2; }
+    .btn { min-height: 44px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 13px; background: var(--surface); color: var(--text); display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-weight: 600; }
+    .btn-primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+    .btn-ghost { background: transparent; }
+    .btn-danger { color: var(--red); }
+    .btn-icon { width: 40px; height: 40px; min-height: 40px; padding: 0; }
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .result { display: none; margin-top: 12px; border-radius: 8px; padding: 16px; border: 1px solid transparent; }
+    .result.visible { display: block; }
+    .result.green { background: var(--green-soft); color: var(--green); border-color: rgba(36,115,74,.2); }
+    .result.amber { background: var(--amber-soft); color: var(--amber); border-color: rgba(154,101,18,.2); }
+    .result.red { background: var(--red-soft); color: var(--red); border-color: rgba(163,59,51,.2); }
+    .result-title { display: flex; align-items: center; gap: 9px; font-size: 18px; font-weight: 700; }
+    .result p { margin-top: 8px; font-size: 14px; }
+    .result ul { margin: 9px 0 0; padding-left: 19px; font-size: 13px; }
+    .result .btn-row { margin-top: 14px; }
+    .result .btn { background: rgba(255,255,255,.72); }
+    .list { display: grid; gap: 8px; }
+    .list-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 13px 14px; }
+    .item-main { min-width: 0; }
+    .item-title { display: flex; gap: 7px; align-items: center; font-weight: 600; overflow-wrap: anywhere; }
+    .item-meta { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .item-value { flex: 0 0 auto; text-align: right; font-weight: 600; }
+    .pill { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 11px; font-weight: 500; }
+    .progress { height: 7px; margin-top: 9px; border-radius: 4px; overflow: hidden; background: var(--surface-2); }
+    .progress > span { display: block; height: 100%; background: var(--green); border-radius: inherit; }
+    .empty { padding: 28px 16px; text-align: center; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); }
+    .chat-feed { display: grid; gap: 10px; min-height: 240px; align-content: start; padding: 8px 0 16px; }
+    .chat-message { max-width: 86%; display: grid; grid-template-columns: minmax(0, 1fr) 28px; gap: 7px; align-items: start; padding: 10px 8px 10px 13px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: 14px; overflow-wrap: anywhere; }
+    .chat-message.user { justify-self: end; background: var(--text); border-color: var(--text); color: var(--bg); }
+    .chat-message.assistant { justify-self: start; }
+    .chat-copy { width: 28px; height: 28px; border: 0; border-radius: 6px; padding: 0; display: grid; place-items: center; background: transparent; color: inherit; opacity: .64; }
+    .chat-copy:hover { background: rgba(128,128,128,.14); opacity: 1; }
+    .chat-compose { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; gap: 8px; align-items: end; }
+    .voice-btn.listening { background: var(--red); border-color: var(--red); color: var(--surface); }
+    textarea { width: 100%; min-height: 74px; max-height: 150px; resize: vertical; border: 1px solid var(--border); border-radius: 7px; padding: 10px 11px; background: var(--surface); color: var(--text); font: inherit; outline: none; }
+    textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(53,108,135,.13); }
+    .chat-preview { display: none; margin-top: 12px; }
+    .chat-preview.visible { display: grid; gap: 10px; }
+    .bottom-nav { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); width: min(720px, 100%); display: grid; grid-template-columns: repeat(5, 1fr); background: rgba(247,247,244,.94); border-top: 1px solid var(--border); backdrop-filter: blur(12px); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+    .nav-btn { border: 0; min-height: 54px; background: transparent; color: var(--muted); display: grid; justify-items: center; align-content: center; gap: 3px; font-size: 11px; border-radius: 7px; }
+    .nav-btn.active { color: var(--text); background: var(--surface); }
+    .modal { position: fixed; z-index: 50; inset: 0; display: none; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(20,21,19,.42); }
+    .modal.open { display: flex; }
+    .modal-sheet { width: min(560px, 100%); max-height: 88dvh; overflow-y: auto; border-radius: 8px; background: var(--bg); padding: 18px; box-shadow: var(--shadow); }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .host-card { display: grid; gap: 12px; }
+    .host-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .session { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .toast { position: fixed; z-index: 80; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px); opacity: 0; pointer-events: none; background: var(--text); color: var(--bg); border-radius: 7px; padding: 10px 14px; transition: .2s ease; font-size: 13px; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .sync-card { gap: 14px; }
+    .sync-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .sync-account { display: grid; gap: 3px; }
+    .sync-account strong { font-size: 16px; overflow-wrap: anywhere; }
+    .sync-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
+    .sync-status strong { color: var(--text); font-weight: 600; }
+    .drawer { position: fixed; z-index: 70; inset: 0; display: none; align-items: flex-end; justify-content: center; background: rgba(20,21,19,.42); }
+    .drawer.open { display: flex; }
+    .drawer-sheet { width: min(720px, 100%); max-height: 88dvh; overflow-y: auto; border-radius: 16px 16px 0 0; background: var(--bg); padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); box-shadow: var(--shadow); transform: translateY(12px); animation: drawerIn .18s ease forwards; }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @keyframes drawerIn { to { transform: translateY(0); } }
+
+    @media (min-width: 600px) {
+      .app { padding-inline: 24px; }
+      .modal { align-items: center; }
+      .drawer { align-items: center; padding: 16px; }
+      .drawer-sheet { border-radius: 12px; max-width: 520px; padding: 18px; }
+    }
+    @media (max-width: 390px) {
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .summary:last-child { grid-column: span 2; }
+      .history-controls { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .span-2 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><i data-lucide="pause" aria-hidden="true"></i></div>
+        <h1>慢慢买</h1>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-icon btn-ghost" id="quickExpenseBtn" title="快速记账" aria-label="快速记账"><i data-lucide="notebook-pen"></i></button>
+        <button class="btn btn-icon btn-ghost" id="installBtn" hidden title="添加到手机桌面" aria-label="添加到手机桌面"><i data-lucide="download"></i></button>
+      </div>
+    </header>
+
+    <section class="page active" id="page-decide">
+      <div class="summary-grid">
+        <div class="summary"><span>本月已花</span><strong id="monthSpent">¥0</strong></div>
+        <div class="summary"><span>本月剩余</span><strong id="monthLeft">¥0</strong></div>
+        <div class="summary"><span>本场剩余</span><strong id="sessionLeft">¥0</strong></div>
+      </div>
+
+      <div class="section-head"><h2>直播急购判断</h2><span class="pill">约 30 秒</span></div>
+      <form class="card form-grid" id="decisionForm">
+        <label class="span-2">正在看的主播
+          <select id="decisionHost" required></select>
+        </label>
+        <label class="span-2">商品名称
+          <input id="decisionName" required maxlength="40" placeholder="例如：身体乳三件套">
+        </label>
+        <label>商品分类
+          <select id="decisionCategory" required></select>
+        </label>
+        <label>购买目的
+          <select id="decisionPurpose">
+            <option value="need">补货 / 确实需要</option>
+            <option value="like">喜欢 / 支持主播</option>
+            <option value="collect">收藏 / 限定款</option>
+          </select>
+        </label>
+        <label>整单价格（元）
+          <input id="decisionPrice" required inputmode="decimal" type="number" min="0" step="0.01" placeholder="0.00">
+        </label>
+        <label>一共几件
+          <input id="decisionQty" required inputmode="numeric" type="number" min="1" step="1" value="1">
+        </label>
+        <button class="btn btn-primary span-2" type="submit"><i data-lucide="scan-search"></i>帮我判断</button>
+      </form>
+      <div class="result" id="decisionResult" aria-live="polite"></div>
+
+      <div class="section-head"><h2>最近购买</h2></div>
+      <div class="list" id="recentPurchases"></div>
+    </section>
+
+    <section class="page" id="page-inventory">
+      <div class="section-head">
+        <div><h2>家庭库存</h2><p class="muted small" id="inventoryCount"></p></div>
+        <button class="btn" data-open="inventoryModal"><i data-lucide="plus"></i>添加</button>
+      </div>
+      <div class="list" id="inventoryList"></div>
+    </section>
+
+    <section class="page" id="page-expenses">
+      <div class="summary-grid">
+        <div class="summary"><span>今天</span><strong id="todaySpent">¥0</strong></div>
+        <div class="summary"><span>本周</span><strong id="weekSpent">¥0</strong></div>
+        <div class="summary"><span>本月</span><strong id="expenseMonthSpent">¥0</strong></div>
+      </div>
+      <div class="section-head"><h2>历史消费</h2></div>
+      <div class="history-controls">
+        <div class="segmented" role="group" aria-label="统计周期">
+          <button class="segment-btn" type="button" data-history-period="day" aria-pressed="false">日</button>
+          <button class="segment-btn" type="button" data-history-period="week" aria-pressed="false">周</button>
+          <button class="segment-btn active" type="button" data-history-period="month" aria-pressed="true">月</button>
+          <button class="segment-btn" type="button" data-history-period="quarter" aria-pressed="false">季度</button>
+          <button class="segment-btn" type="button" data-history-period="year" aria-pressed="false">年</button>
+        </div>
+        <label>统计日期<input id="historyDate" type="date"></label>
+      </div>
+      <div class="summary-grid history-summary">
+        <div class="summary"><span>消费</span><strong id="historyPurchaseTotal">¥0</strong></div>
+        <div class="summary"><span>退款</span><strong id="historyRefundTotal">¥0</strong></div>
+        <div class="summary"><span>净支出</span><strong id="historyNetTotal">¥0</strong></div>
+      </div>
+      <p class="muted small" id="historyRangeLabel" style="margin:10px 0 8px"></p>
+      <div class="history-chart">
+        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">月度趋势</span><span class="muted small">全部历史 · 净支出</span></div>
+        <div class="history-chart-plot" id="historyChart" aria-label="历史消费趋势图"></div>
+      </div>
+      <div class="list" id="historyExpenseList"></div>
+      <div class="section-head">
+        <h2>全部记录</h2>
+        <button class="btn" data-open="expenseModal"><i data-lucide="plus"></i>记一笔</button>
+      </div>
+      <div class="list" id="expenseList"></div>
+    </section>
+
+    <section class="page" id="page-chat">
+      <div class="section-head"><h2>对话记账</h2><span class="pill">本机解析</span></div>
+      <div class="chat-feed" id="chatFeed" aria-live="polite">
+        <div class="chat-message assistant"><span class="chat-text">把消费或退款直接告诉我。例如：“昨天在抖音买了身体乳114元”。</span><button class="chat-copy" type="button" data-copy-message title="复制这条文字" aria-label="复制这条文字"><i data-lucide="copy"></i></button></div>
+      </div>
+      <form class="chat-compose" id="chatForm">
+        <label style="display:block"><span class="small muted">消费或退款</span><textarea id="chatInput" required maxlength="300" placeholder="昨天买了衣服230元，还退了精华114元"></textarea></label>
+        <button class="btn btn-icon voice-btn" id="voiceInputBtn" type="button" title="语音转文字" aria-label="开始语音输入" aria-pressed="false"><i data-lucide="mic"></i></button>
+        <button class="btn btn-primary btn-icon" type="submit" title="发送" aria-label="发送"><i data-lucide="send"></i></button>
+      </form>
+      <div class="chat-preview" id="chatPreview"></div>
+    </section>
+
+    <section class="page" id="page-settings">
+      <div class="section-head"><h2>预算</h2></div>
+      <form class="card stack" id="budgetForm">
+        <label>每月购物预算（元）
+          <input id="monthlyBudget" type="number" min="0" step="1" required>
+        </label>
+        <button class="btn btn-primary" type="submit"><i data-lucide="save"></i>保存预算</button>
+      </form>
+      <div class="section-head">
+        <div><h2>主播规则</h2><p class="muted small">每位主播可以有不同的直播预算</p></div>
+        <button class="btn" data-open="hostModal"><i data-lucide="plus"></i>添加</button>
+      </div>
+      <div class="stack" id="hostList"></div>
+      <div class="section-head"><h2>数据</h2></div>
+      <div class="card btn-row">
+        <button class="btn" id="exportBtn"><i data-lucide="file-down"></i>导出备份</button>
+        <button class="btn" id="importBtn"><i data-lucide="file-up"></i>导入备份</button>
+        <input id="importFile" type="file" accept="application/json" hidden>
+      </div>
+      <div class="section-head">
+        <div><h2>云端同步</h2><p class="muted small">同一账号多设备同步，不同账号数据隔离</p></div>
+      </div>
+      <section class="card stack sync-card" id="syncPanel">
+        <div class="sync-top">
+          <div class="sync-account">
+            <span class="muted small">当前账号</span>
+            <strong id="syncAccount">未登录</strong>
+          </div>
+          <button class="btn" id="openAuthDrawerBtn" type="button"><i data-lucide="user-circle"></i>登录 / 注册</button>
+        </div>
+        <p class="muted small">登录后自动同步：保存即上传，打开、回到页面和每隔一会儿会自动接收其他设备的更新。</p>
+        <div class="sync-status"><span id="syncStatus">未配置同步</span><strong id="syncUpdatedAt"></strong></div>
+        <button class="btn btn-danger" id="signOutBtn" type="button" hidden><i data-lucide="log-out"></i>退出当前账号</button>
+      </section>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="主导航">
+    <button class="nav-btn active" data-page="decide"><i data-lucide="zap"></i><span>急购判断</span></button>
+    <button class="nav-btn" data-page="chat"><i data-lucide="messages-square"></i><span>对话</span></button>
+    <button class="nav-btn" data-page="inventory"><i data-lucide="package-open"></i><span>库存</span></button>
+    <button class="nav-btn" data-page="expenses"><i data-lucide="receipt-text"></i><span>账单</span></button>
+    <button class="nav-btn" data-page="settings"><i data-lucide="sliders-horizontal"></i><span>设置</span></button>
+  </nav>
+
+  <div class="modal" id="inventoryModal" role="dialog" aria-modal="true" aria-labelledby="inventoryModalTitle">
+    <form class="modal-sheet form-grid" id="inventoryForm">
+      <div class="modal-head span-2"><h2 id="inventoryModalTitle">添加库存</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <input id="inventoryId" type="hidden">
+      <label class="span-2">物品名称<input id="inventoryName" required maxlength="40" placeholder="例如：洗发水"></label>
+      <label>分类（可自定义）<input id="inventoryCategory" list="inventoryCategoryOptions" required placeholder="选择或输入新分类"><datalist id="inventoryCategoryOptions"></datalist><span class="field-help">没有合适选项？直接输入，保存后会自动记住</span><span class="quick-options" id="inventoryCategoryQuick" aria-label="已保存的分类"></span></label>
+      <label>现有数量<input id="inventoryQty" type="number" min="0" step="0.1" required value="1"></label>
+      <label>数量单位（可自定义）<input id="inventoryUnit" list="inventoryUnitOptions" required value="件" placeholder="如：片、克、瓶"><datalist id="inventoryUnitOptions"></datalist><span class="field-help">可选片、克、瓶等，也可以直接输入自己的单位</span><span class="quick-options" id="inventoryUnitQuick" aria-label="已保存的单位"></span></label>
+      <label>每月大约用量<input id="inventoryUsage" type="number" min="0" step="0.1" required value="1"></label>
+      <label>最早过期日（可不填）<input id="inventoryExpiry" type="date"></label>
+      <label class="span-2">物品照片（可拍照或从相册选择）<input id="inventoryImage" type="file" accept="image/*" capture="environment"><img id="inventoryImagePreview" class="inventory-image-preview" alt="库存照片预览"></label>
+      <button class="btn btn-primary span-2" type="submit">保存库存</button>
+    </form>
+  </div>
+
+  <div class="modal" id="expenseModal" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle">
+    <form class="modal-sheet form-grid" id="expenseForm">
+      <div class="modal-head span-2"><h2 id="expenseModalTitle">快速记账</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <label>类型<select id="expenseKind"><option value="expense">消费</option><option value="refund">退款</option></select></label>
+      <label>金额（元）<input id="expenseAmount" type="number" inputmode="decimal" min="0" step="0.01" required autofocus placeholder="0.00"></label>
+      <label>平台<select id="expensePlatform"><option>抖音</option><option>淘宝</option><option>京东</option><option>拼多多</option><option>小红书</option><option>其他</option></select></label>
+      <label>分类<select id="expenseCategory" required></select></label>
+      <label class="span-2">商品名称（可不填）<input id="expenseName" maxlength="40" placeholder="例如：洗发水"></label>
+      <label>日期<input id="expenseDate" type="date" required></label>
+      <button class="btn btn-primary" type="submit">保存记录</button>
+    </form>
+  </div>
+
+  <div class="modal" id="hostModal" role="dialog" aria-modal="true" aria-labelledby="hostModalTitle">
+    <form class="modal-sheet form-grid" id="hostForm">
+      <div class="modal-head span-2"><h2 id="hostModalTitle">添加主播规则</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <input id="hostId" type="hidden">
+      <label class="span-2">主播称呼<input id="hostName" required maxlength="24" placeholder="例如：半月播一次的主播"></label>
+      <label>每场预算（元）<input id="hostBudget" type="number" min="0" step="1" required value="500"></label>
+      <label>库存上限（月）<input id="hostStockCap" type="number" min="0" step="0.5" required value="6"></label>
+      <label class="span-2">每场“喜欢就买”额度（元）<input id="hostFunBudget" type="number" min="0" step="1" required value="200"></label>
+      <button class="btn btn-primary span-2" type="submit">保存规则</button>
+    </form>
+  </div>
+
+  <div class="drawer" id="authDrawer" role="dialog" aria-modal="true" aria-labelledby="authDrawerTitle">
+    <form class="drawer-sheet stack" id="authForm">
+      <div class="drawer-head">
+        <div>
+          <h2 id="authDrawerTitle">登录账号</h2>
+          <p class="muted small">同一个账号在手机和电脑上会同步同一份账单。</p>
+        </div>
+        <button class="btn btn-icon btn-ghost" id="authDrawerClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button>
+      </div>
+      <label>邮箱
+        <input id="authEmail" type="email" autocomplete="username" placeholder="you@example.com">
+      </label>
+      <label>密码
+        <input id="authPassword" type="password" autocomplete="current-password" placeholder="至少 6 位">
+      </label>
+      <div class="auth-actions">
+        <button class="btn btn-primary" id="signInBtn" type="submit"><i data-lucide="log-in"></i>登录</button>
+        <button class="btn" id="signUpBtn" type="button"><i data-lucide="user-plus"></i>注册</button>
+      </div>
+      <p class="small" id="authMessage" role="status"></p>
+      <p class="muted small">云端连接已内置，不需要再填写 URL 或 key。</p>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    const STORE_KEY = 'slow-buy-v1';
+    const SYNC_CONFIG_KEY = 'slow-buy-sync-config-v1';
+    const SUPABASE_PROJECT_URL = 'https://iwqyhzfohjmtscpzenun.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aST__7_-Gcj6Wi5ZCP0Pxw_fMbWYxp0';
+    const CHAT_WELCOME = '把消费或退款直接告诉我。例如：“昨天在抖音买了身体乳114元”。';
+    const categories = ['护肤美妆', '食品饮料', '清洁日用', '服饰鞋包', '家居用品', '数码电器', '收藏爱好', '其他'];
+    const defaultInventoryUnits = ['件', '个', '瓶', '盒', '袋', '包', '支', '片', '克', '千克', '毫升', '升'];
+    const dateISO = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const todayISO = () => dateISO();
+    const money = n => `¥${Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+    const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const defaultState = {
+      monthlyBudget: 2000,
+      hosts: [{ id: 'host-default', name: '我喜欢的主播', perLiveBudget: 500, funBudget: 200, stockCap: 6, sessionSpent: 0, sessionDate: todayISO() }],
+      inventory: [],
+      inventoryCategories: [...categories],
+      inventoryUnits: [...defaultInventoryUnits],
+      expenses: [],
+      chatHistory: [],
+      chatContext: { date: null, platform: null }
+    };
+
+    let state = loadState();
+    let syncConfig = loadSyncConfig();
+    let supabaseClient = null;
+    let authUser = null;
+    let syncTimer = null;
+    let autoSyncTimer = null;
+    let isAutoSyncing = false;
+    let isApplyingCloudState = false;
+    let lastPersistError = null;
+    let pendingDecision = null;
+    let pendingChatEntries = [];
+    let inventoryImageData = '';
+    let deferredInstallPrompt = null;
+    let speechRecognition = null;
+    let speechBaseText = '';
+
+    function loadState() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+        return saved ? {
+          ...defaultState,
+          ...saved,
+          inventoryCategories: Array.isArray(saved.inventoryCategories) && saved.inventoryCategories.length ? saved.inventoryCategories : [...new Set([...categories, ...(saved.inventory || []).map(item => item.category).filter(Boolean)])],
+          inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
+          chatHistory: Array.isArray(saved.chatHistory) ? saved.chatHistory : [],
+          chatContext: { ...defaultState.chatContext, ...(saved.chatContext || {}) }
+        } : structuredClone(defaultState);
+      } catch { return structuredClone(defaultState); }
+    }
+    function persistState() {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        lastPersistError = null;
+        return true;
+      } catch (error) {
+        lastPersistError = error;
+        console.error('保存本地数据失败', error);
+        return false;
+      }
+    }
+    function saveState() {
+      if (!persistState()) return false;
+      renderAll();
+      queueCloudSave();
+      return true;
+    }
+    function loadSyncConfig() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {};
+        return { ...saved, supabaseUrl: SUPABASE_PROJECT_URL, anonKey: SUPABASE_PUBLISHABLE_KEY, lastSyncedAt: saved.lastSyncedAt || '' };
+      } catch {
+        return { supabaseUrl: SUPABASE_PROJECT_URL, anonKey: SUPABASE_PUBLISHABLE_KEY, lastSyncedAt: '' };
+      }
+    }
+    function saveSyncConfig() { localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig)); }
+    function hasSyncConfig() { return Boolean(syncConfig.supabaseUrl && syncConfig.anonKey); }
+    function normalizeSupabaseUrl(url) { return String(url || '').trim().replace(/\/+$/, ''); }
+    function getSupabaseClient() {
+      if (!hasSyncConfig()) throw new Error('云端连接未配置');
+      if (!window.supabase) throw new Error('Supabase 脚本加载失败，请检查网络');
+      if (!supabaseClient) supabaseClient = window.supabase.createClient(normalizeSupabaseUrl(syncConfig.supabaseUrl), syncConfig.anonKey);
+      return supabaseClient;
+    }
+    async function refreshAuthUser() {
+      if (!hasSyncConfig()) { authUser = null; return null; }
+      const client = getSupabaseClient();
+      const { data, error } = await client.auth.getUser();
+      if (error) authUser = null;
+      else authUser = data.user || null;
+      return authUser;
+    }
+    function setSyncStatus(message, updatedAt = syncConfig.lastSyncedAt) {
+      const status = byId('syncStatus');
+      const updated = byId('syncUpdatedAt');
+      if (!status || !updated) return;
+      status.textContent = message;
+      updated.textContent = updatedAt ? `上次同步 ${new Date(updatedAt).toLocaleString('zh-CN')}` : '';
+    }
+    function setAuthMessage(message, isError = false) {
+      const messageEl = byId('authMessage');
+      if (!messageEl) return;
+      messageEl.textContent = message || '';
+      messageEl.style.color = isError ? 'var(--red)' : 'var(--muted)';
+    }
+    function friendlyAuthError(error) {
+      const raw = String(error?.message || error || '');
+      const lower = raw.toLowerCase();
+      if (lower.includes('email not confirmed')) return `邮箱还没确认，请先去邮箱点确认链接后再登录。`;
+      if (lower.includes('invalid login credentials')) return `邮箱或密码不对，请检查后再登录。`;
+      if (lower.includes('email rate limit exceeded')) return `确认邮件发送太频繁了，请过一会儿再试。`;
+      if (lower.includes('user already registered') || lower.includes('already registered')) return `这个邮箱已经注册过了，请直接登录。`;
+      if (lower.includes('password') && lower.includes('6')) return `密码至少需要 6 位。`;
+      if (lower.includes('signup disabled')) return `当前项目没有开启邮箱注册，请在 Supabase 后台开启 Email 注册。`;
+      if (lower.includes('network') || lower.includes('failed to fetch')) return `网络连接失败，请检查网络后再试。`;
+      return raw ? `操作失败：${raw}` : '操作失败，请稍后再试。';
+    }
+    function setAuthStatus() {
+      if (!hasSyncConfig()) { setSyncStatus('未配置同步'); return; }
+      setSyncStatus(authUser ? `自动同步已开启：${authUser.email || authUser.id}` : '请登录以开启自动同步');
+      renderSyncPanel();
+    }
+    function renderSyncPanel() {
+      const account = byId('syncAccount');
+      const openButton = byId('openAuthDrawerBtn');
+      const signOutButton = byId('signOutBtn');
+      if (!account || !openButton || !signOutButton) return;
+      account.textContent = authUser ? (authUser.email || '已登录账号') : '未登录';
+      openButton.hidden = Boolean(authUser);
+      signOutButton.hidden = !authUser;
+    }
+    function openAuthDrawer() {
+      const drawer = byId('authDrawer');
+      setAuthMessage('');
+      drawer.classList.add('open');
+      setTimeout(() => byId('authEmail')?.focus(), 80);
+    }
+    function closeAuthDrawer() {
+      byId('authDrawer').classList.remove('open');
+    }
+    function mergeById(localItems = [], remoteItems = []) {
+      const items = new Map();
+      [...localItems, ...remoteItems].forEach(item => {
+        if (item?.id) items.set(item.id, item);
+      });
+      return [...items.values()];
+    }
+    function mergeState(localState, remoteState) {
+      return {
+        ...defaultState,
+        ...localState,
+        ...remoteState,
+        hosts: mergeById(localState.hosts, remoteState.hosts),
+        inventory: mergeById(localState.inventory, remoteState.inventory),
+        expenses: mergeById(localState.expenses, remoteState.expenses),
+        inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories)])],
+        inventoryUnits: [...new Set([...(localState.inventoryUnits || defaultInventoryUnits), ...(remoteState.inventoryUnits || defaultInventoryUnits)])],
+        chatHistory: [...(localState.chatHistory || []), ...(remoteState.chatHistory || [])].slice(-40),
+        chatContext: { ...defaultState.chatContext, ...(localState.chatContext || {}), ...(remoteState.chatContext || {}) }
+      };
+    }
+    async function fetchCloudState() {
+      const user = authUser || await refreshAuthUser();
+      if (!user) throw new Error('请先登录 Supabase 账号');
+      const { data, error } = await getSupabaseClient().from('app_state').select('data').eq('user_id', user.id).maybeSingle();
+      if (error) throw new Error(`云端读取失败：${error.message}`);
+      return data?.data || null;
+    }
+    async function pushCloudState(showMessage = false) {
+      if (!hasSyncConfig() || isApplyingCloudState) return;
+      const user = authUser || await refreshAuthUser();
+      if (!user) { setAuthStatus(); return; }
+      const now = new Date().toISOString();
+      const { error } = await getSupabaseClient().from('app_state').upsert({ id: user.id, user_id: user.id, data: state, updated_at: now });
+      if (error) throw new Error(`云端保存失败：${error.message}`);
+      syncConfig.lastSyncedAt = now;
+      saveSyncConfig();
+      setSyncStatus('已同步到云端', now);
+      if (showMessage) showToast('已推送到云端');
+    }
+    async function pullCloudState(showMessage = false) {
+      const remoteState = await fetchCloudState();
+      if (!remoteState) {
+        await pushCloudState(false);
+        if (showMessage) showToast('云端为空，已上传本机数据');
+        return;
+      }
+      isApplyingCloudState = true;
+      state = mergeState(state, remoteState);
+      persistState();
+      isApplyingCloudState = false;
+      renderAll();
+      await pushCloudState(false);
+      setSyncStatus('已从云端合并');
+      if (showMessage) showToast('已从云端拉取');
+    }
+    function queueCloudSave() {
+      if (!hasSyncConfig() || !authUser || isApplyingCloudState) return;
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => pushCloudState().catch(error => setSyncStatus(error.message)), 500);
+    }
+    async function runAutoSync() {
+      if (!hasSyncConfig() || !authUser || isApplyingCloudState || isAutoSyncing) return;
+      isAutoSyncing = true;
+      try {
+        await pullCloudState(false);
+      } catch (error) {
+        setSyncStatus(`自动同步暂不可用：${error.message}`);
+      } finally {
+        isAutoSyncing = false;
+      }
+    }
+    function startAutoSync() {
+      clearInterval(autoSyncTimer);
+      if (!authUser) return;
+      runAutoSync();
+      autoSyncTimer = setInterval(() => {
+        if (document.visibilityState === 'visible') runAutoSync();
+      }, 30000);
+    }
+    function stopAutoSync() {
+      clearInterval(autoSyncTimer);
+      autoSyncTimer = null;
+    }
+    function byId(id) { return document.getElementById(id); }
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+    }
+    function monthKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
+    function expenseTotal(filter) { return state.expenses.filter(filter).reduce((sum, item) => sum + Number(item.amount), 0); }
+    function monthSpent() { const key = monthKey(); return expenseTotal(e => e.date.startsWith(key)); }
+    function currentHost() { return state.hosts.find(h => h.id === byId('decisionHost').value) || state.hosts[0]; }
+    function categoryStock(category) {
+      const items = state.inventory.filter(i => i.category === category);
+      const qty = items.reduce((s, i) => s + Number(i.qty), 0);
+      const usage = items.reduce((s, i) => s + Number(i.monthlyUsage), 0);
+      return { qty, usage, months: usage > 0 ? qty / usage : (qty > 0 ? Infinity : 0), items };
+    }
+    function showToast(message) {
+      const el = byId('toast'); el.textContent = message; el.classList.add('show');
+      clearTimeout(showToast.timer); showToast.timer = setTimeout(() => el.classList.remove('show'), 1800);
+    }
+    function setVoiceState(listening) {
+      const button = byId('voiceInputBtn');
+      button.classList.toggle('listening', listening);
+      button.setAttribute('aria-pressed', String(listening));
+      button.setAttribute('aria-label', listening ? '停止语音输入' : '开始语音输入');
+      button.title = listening ? '停止语音输入' : '语音转文字';
+      button.innerHTML = listening ? '<i data-lucide="square"></i>' : '<i data-lucide="mic"></i>';
+      iconRefresh();
+    }
+    function startVoiceInput() {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Recognition) {
+        showToast('请使用手机键盘上的麦克风');
+        byId('chatInput').focus();
+        return;
+      }
+      if (speechRecognition) {
+        speechRecognition.stop();
+        return;
+      }
+      speechBaseText = byId('chatInput').value.trim();
+      const recognition = new Recognition();
+      speechRecognition = recognition;
+      recognition.lang = 'zh-CN';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onstart = () => setVoiceState(true);
+      recognition.onresult = event => {
+        let transcript = '';
+        for (let index = 0; index < event.results.length; index += 1) transcript += event.results[index][0].transcript;
+        byId('chatInput').value = [speechBaseText, transcript.trim()].filter(Boolean).join('，');
+      };
+      recognition.onerror = event => {
+        if (event.error !== 'aborted' && event.error !== 'no-speech') showToast('语音识别失败，可直接修改文字');
+      };
+      recognition.onend = () => {
+        speechRecognition = null;
+        setVoiceState(false);
+        byId('chatInput').focus();
+      };
+      recognition.start();
+    }
+    function iconRefresh() { if (window.lucide) lucide.createIcons({ attrs: { width: 19, height: 19, 'stroke-width': 1.8 } }); }
+    function categoryOptions(selected = '') { return categories.map(c => `<option${c === selected ? ' selected' : ''}>${c}</option>`).join(''); }
+    function inventoryDatalistOptions(values) { return [...new Set(values.filter(Boolean))].map(value => `<option value="${escapeHTML(value)}"></option>`).join(''); }
+    function inventoryQuickOptions(values, field) { return [...new Set(values.filter(Boolean))].slice(0, 18).map(value => `<button type="button" class="quick-option" data-fill-inventory-field="${field}" data-fill-inventory-value="${escapeHTML(value)}">${escapeHTML(value)}</button>`).join(''); }
+    function renderInventoryInputs() {
+      const savedCategories = state.inventoryCategories || categories;
+      const savedUnits = state.inventoryUnits || defaultInventoryUnits;
+      byId('inventoryCategoryOptions').innerHTML = inventoryDatalistOptions(savedCategories);
+      byId('inventoryUnitOptions').innerHTML = inventoryDatalistOptions(savedUnits);
+      byId('inventoryCategoryQuick').innerHTML = inventoryQuickOptions(savedCategories, 'inventoryCategory');
+      byId('inventoryUnitQuick').innerHTML = inventoryQuickOptions(savedUnits, 'inventoryUnit');
+    }
+    function inferCategory(text) {
+      if (/精华|面霜|口红|护肤|面膜|防晒|乳液|洗面奶/.test(text)) return '护肤美妆';
+      if (/衣|裤|裙|鞋|包|外套|衬衫|内衣/.test(text)) return '服饰鞋包';
+      if (/吃|喝|茶|咖啡|水果|零食|牛奶|粮油|食品/.test(text)) return '食品饮料';
+      if (/洗衣|清洁|抽纸|洗发|沐浴|牙膏|日用/.test(text)) return '清洁日用';
+      if (/手机|耳机|电脑|充电|数码|电器/.test(text)) return '数码电器';
+      if (/家居|枕头|床品|锅|杯|收纳/.test(text)) return '家居用品';
+      if (/手办|盲盒|限定|收藏|周边/.test(text)) return '收藏爱好';
+      return '其他';
+    }
+    function parseChatDate(text, fallback = null) {
+      const date = new Date();
+      const hasRelativeDate = /今天|昨天|前天/.test(text);
+      if (text.includes('前天')) date.setDate(date.getDate() - 2);
+      else if (text.includes('昨天')) date.setDate(date.getDate() - 1);
+      const exact = text.match(/(\d{1,2})月(\d{1,2})日/);
+      if (exact) { date.setMonth(Number(exact[1]) - 1); date.setDate(Number(exact[2])); }
+      return exact || hasRelativeDate ? dateISO(date) : (fallback || dateISO(date));
+    }
+    function findChatAmount(text) {
+      return text.match(/(?:花了|花费|合计|一共|共|金额是?)?\s*[¥￥]?\s*(\d+(?:\.\d+)?)\s*(?:元|块钱|块)/) || text.match(/(?:花了|花费|退了|退款)\s*[¥￥]?\s*(\d+(?:\.\d+)?)/);
+    }
+    function splitChatTransactions(text) {
+      const separated = text
+        .replace(/(?:还|又|另外)(?=(?:买|退|退款|退货))/g, '。')
+        .split(/[。；;，,\n]+/)
+        .map(part => part.trim())
+        .filter(Boolean);
+      const result = [];
+      let pendingDescription = '';
+      separated.forEach(part => {
+        const amountTokens = [...part.matchAll(/(?:花了|花费|合计|一共|共|金额是?)?\s*[¥￥]?\s*\d+(?:\.\d+)?\s*(?:元|块钱|块)|(?:花了|花费|退了|退款)\s*[¥￥]?\s*\d+(?:\.\d+)?/g)];
+        if (!amountTokens.length) {
+          pendingDescription = `${pendingDescription} ${part}`.trim();
+          return;
+        }
+        let cursor = 0;
+        amountTokens.forEach((token, index) => {
+          const chunk = part.slice(cursor, token.index + token[0].length).trim();
+          const prefix = index === 0 && pendingDescription ? `${pendingDescription} ` : '';
+          result.push(`${prefix}${chunk}`.trim());
+          cursor = token.index + token[0].length;
+          pendingDescription = '';
+        });
+        const tail = part.slice(cursor).trim();
+        if (tail) pendingDescription = tail;
+      });
+      return result;
+    }
+    function parseChatEntries(text) {
+      const sharedDate = parseChatDate(text, state.chatContext.date);
+      const sharedPlatform = ['抖音','淘宝','京东','拼多多','小红书'].find(p => text.includes(p)) || state.chatContext.platform || '其他';
+      const parts = splitChatTransactions(text);
+      return parts.map(part => {
+        const amountMatch = findChatAmount(part);
+        if (!amountMatch) return null;
+        const isRefund = /退款|退货|退了|退掉|退回/.test(part);
+        let name = part.replace(amountMatch[0], '')
+          .replace(/今天|昨天|前天|\d{1,2}月\d{1,2}日/g, '')
+          .replace(new RegExp(`在?(?:${['抖音','淘宝','京东','拼多多','小红书'].join('|')})`, 'g'), '')
+          .replace(/花了|花费|合计|一共|共|金额是?/g, '')
+          .replace(/^(?:我)?(?:买了?|入手了?|下单了?|退款了?|退货了?|退了?)/, '')
+          .replace(/^(?:还有|另外|再加|然后)/, '')
+          .replace(/^[的了\s]+|[的了\s，,]+$/g, '')
+          .trim();
+        if (!name) name = isRefund ? '退款' : '日常消费';
+        const platform = ['抖音','淘宝','京东','拼多多','小红书'].find(p => part.includes(p)) || sharedPlatform;
+        const amount = Math.abs(Number(amountMatch[1]));
+        return { id: uid(), name, amount: isRefund ? -amount : amount, kind: isRefund ? 'refund' : 'expense', platform, category: inferCategory(name), date: sharedDate, fromLive: false };
+      }).filter(Boolean);
+    }
+    function explicitChatContext(text) {
+      const platform = ['抖音','淘宝','京东','拼多多','小红书','其他'].find(p => text.includes(p)) || null;
+      const hasDate = /今天|昨天|前天|\d{1,2}月\d{1,2}日/.test(text);
+      return { platform, date: hasDate ? parseChatDate(text) : null };
+    }
+    function messageHTML(message) {
+      return `<div class="chat-message ${message.role}"><span class="chat-text">${escapeHTML(message.text)}</span><button class="chat-copy" type="button" data-copy-message title="复制这条文字" aria-label="复制这条文字"><i data-lucide="copy"></i></button></div>`;
+    }
+    function renderChatHistory() {
+      const messages = state.chatHistory.length ? state.chatHistory : [{ role: 'assistant', text: CHAT_WELCOME }];
+      byId('chatFeed').innerHTML = messages.map(messageHTML).join('');
+    }
+    function addChatMessage(text, role) {
+      state.chatHistory.push({ role, text });
+      state.chatHistory = state.chatHistory.slice(-40);
+      persistState();
+      byId('chatFeed').insertAdjacentHTML('beforeend', messageHTML({ role, text }));
+      iconRefresh();
+    }
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+    }
+    function renderChatPreview() {
+      const preview = byId('chatPreview');
+      if (!pendingChatEntries.length) { preview.className = 'chat-preview'; preview.innerHTML = ''; return; }
+      preview.className = 'chat-preview visible';
+      preview.innerHTML = `<h3>请确认 ${pendingChatEntries.length} 笔记录</h3><div class="list">${pendingChatEntries.map(item => expenseHTML(item)).join('')}</div><div class="btn-row"><button class="btn" id="cancelChatEntries">重新说</button><button class="btn btn-primary" id="confirmChatEntries"><i data-lucide="check"></i>确认记账</button></div>`;
+      iconRefresh();
+    }
+
+    function renderAll() {
+      renderHostSelect(); renderSummary(); renderRecent(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory();
+      byId('monthlyBudget').value = state.monthlyBudget;
+      setAuthStatus();
+      iconRefresh();
+    }
+    function renderHostSelect() {
+      const select = byId('decisionHost'); const previous = select.value;
+      select.innerHTML = state.hosts.map(h => `<option value="${h.id}">${escapeHTML(h.name)}</option>`).join('');
+      if (state.hosts.some(h => h.id === previous)) select.value = previous;
+    }
+    function renderSummary() {
+      const spent = monthSpent(); const host = currentHost();
+      byId('monthSpent').textContent = money(spent);
+      byId('monthLeft').textContent = money(Math.max(0, state.monthlyBudget - spent));
+      byId('sessionLeft').textContent = money(Math.max(0, (host?.perLiveBudget || 0) - (host?.sessionSpent || 0)));
+      byId('todaySpent').textContent = money(expenseTotal(e => e.date === todayISO()));
+      const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      byId('weekSpent').textContent = money(expenseTotal(e => new Date(`${e.date}T00:00:00`) >= start));
+      byId('expenseMonthSpent').textContent = money(spent);
+    }
+    function renderRecent() {
+      const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 4);
+      byId('recentPurchases').innerHTML = items.length ? items.map(expenseHTML).join('') : '<div class="empty">还没有购买记录</div>';
+    }
+    function expenseHTML(e, canDelete = false) {
+      const isRefund = Number(e.amount) < 0 || e.kind === 'refund';
+      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}</div></div><div class="item-value">${money(e.amount)}${canDelete ? `<div><button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button></div>` : ''}</div></div>`;
+    }
+    function renderExpenses() {
+      const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
+      byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
+    }
+    let historyPeriod = 'month';
+    function localDate(iso) { const [year, month, day] = String(iso || todayISO()).split('-').map(Number); return new Date(year, month - 1, day); }
+    function historyRange(period, anchorISO) {
+      const anchor = localDate(anchorISO); let start = new Date(anchor); let end = new Date(anchor);
+      if (period === 'week') { const offset = (anchor.getDay() + 6) % 7; start.setDate(anchor.getDate() - offset); end = new Date(start); end.setDate(start.getDate() + 6); }
+      if (period === 'month') { start.setDate(1); end = new Date(start.getFullYear(), start.getMonth() + 1, 0); }
+      if (period === 'quarter') { const month = Math.floor(anchor.getMonth() / 3) * 3; start = new Date(anchor.getFullYear(), month, 1); end = new Date(anchor.getFullYear(), month + 3, 0); }
+      if (period === 'year') { start = new Date(anchor.getFullYear(), 0, 1); end = new Date(anchor.getFullYear(), 12, 0); }
+      return { start, end };
+    }
+    function historyLabel(period, range) {
+      const format = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+      const prefix = period === 'day' ? '日' : period === 'week' ? '周' : period === 'month' ? '月' : period === 'quarter' ? '季度' : '年度';
+      return `${prefix}统计：${format(range.start)}${period === 'day' ? '' : `至${format(range.end)}`}`;
+    }
+    function historyChartBuckets(period, expenses) {
+      const valid = expenses.filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.date));
+      if (!valid.length) return [];
+      const bucketKey = date => {
+        if (period === 'day') return dateISO(date);
+        if (period === 'week') { const monday = new Date(date); monday.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return dateISO(monday); }
+        if (period === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (period === 'quarter') return `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
+        return String(date.getFullYear());
+      };
+      const bucketLabel = date => {
+        if (period === 'day') return `${date.getMonth() + 1}/${date.getDate()}`;
+        if (period === 'week') return isoWeekLabel(date);
+        if (period === 'month') return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+        if (period === 'quarter') return `${date.getFullYear()}年Q${Math.floor(date.getMonth() / 3) + 1}`;
+        return `${date.getFullYear()}年`;
+      };
+      const totals = new Map(); const dates = valid.map(item => localDate(item.date)).sort((a, b) => a - b); const first = new Date(dates[0]); const last = new Date(dates[dates.length - 1]);
+      const normalize = date => {
+        if (period === 'week') { date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); date.setHours(0, 0, 0, 0); }
+        if (period === 'month') date.setDate(1);
+        if (period === 'quarter') { date.setMonth(Math.floor(date.getMonth() / 3) * 3, 1); }
+        if (period === 'year') date.setMonth(0, 1);
+        return date;
+      };
+      valid.forEach(item => { const date = localDate(item.date); const key = bucketKey(date); totals.set(key, (totals.get(key) || 0) + Number(item.amount)); });
+      let cursor = normalize(first); const end = normalize(last); const buckets = [];
+      while (cursor <= end) {
+        const key = bucketKey(cursor); buckets.push({ label: bucketLabel(cursor), value: totals.get(key) || 0, date: new Date(cursor) });
+        if (period === 'day') cursor.setDate(cursor.getDate() + 1); else if (period === 'week') cursor.setDate(cursor.getDate() + 7); else if (period === 'month') cursor.setMonth(cursor.getMonth() + 1); else if (period === 'quarter') cursor.setMonth(cursor.getMonth() + 3); else cursor.setFullYear(cursor.getFullYear() + 1);
+      }
+      return buckets;
+    }
+    function isoWeekLabel(date) {
+      const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); const day = utc.getUTCDay() || 7;
+      utc.setUTCDate(utc.getUTCDate() + 4 - day);
+      const year = utc.getUTCFullYear(); const yearStart = new Date(Date.UTC(year, 0, 1)); const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+      return `${year}WK${String(week).padStart(2, '0')}`;
+    }
+    function bindHistoryChartTooltip(chart) {
+      const tooltip = chart.querySelector('.history-chart-tooltip'); if (!tooltip) return;
+      const show = (dot, clientX, clientY) => {
+        const rect = chart.getBoundingClientRect(); const dotRect = dot.getBoundingClientRect();
+        tooltip.innerHTML = `${escapeHTML(dot.dataset.chartLabel)}<strong>${escapeHTML(money(dot.dataset.chartValue))}</strong>`;
+        tooltip.style.left = `${clientX ?? dotRect.left + dotRect.width / 2 - rect.left}px`;
+        tooltip.style.top = `${clientY ?? dotRect.top - rect.top}px`;
+        tooltip.hidden = false;
+      };
+      chart.onpointermove = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot, event.clientX, event.clientY); else tooltip.hidden = true; };
+      chart.onpointerleave = () => { tooltip.hidden = true; };
+      chart.onfocusin = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot); };
+      chart.onfocusout = () => { tooltip.hidden = true; };
+      chart.onclick = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot); };
+    }
+    function renderHistoryChart(period, expenses) {
+      const chart = byId('historyChart'); const buckets = historyChartBuckets(period, expenses);
+      const titles = { day: '每日趋势', week: '每周趋势', month: '每月趋势', quarter: '每季度趋势', year: '每年趋势' };
+      byId('historyChartTitle').textContent = titles[period] || '消费趋势';
+      if (!buckets.length || !expenses.length) { chart.innerHTML = '<div class="history-chart-empty">这个区间还没有数据</div>'; return; }
+      const width = Math.max(640, buckets.length * 46 + 60); const height = 220; const pad = { top: 24, right: 24, bottom: 34, left: 48 }; const plotWidth = width - pad.left - pad.right; const plotHeight = height - pad.top - pad.bottom;
+      const values = buckets.map(bucket => bucket.value); const min = Math.min(0, ...values); const max = Math.max(0, ...values); const span = max - min || 1; const y = value => pad.top + (max - value) / span * plotHeight; const x = index => buckets.length === 1 ? pad.left + plotWidth / 2 : pad.left + index / (buckets.length - 1) * plotWidth;
+      const points = buckets.map((bucket, index) => `${x(index).toFixed(1)},${y(bucket.value).toFixed(1)}`).join(' '); const zeroY = y(0); const labelStep = buckets.length > 14 ? Math.ceil(buckets.length / 8) : 1;
+      const grid = [max, 0, min].filter((value, index, all) => all.indexOf(value) === index).map(value => `<line x1="${pad.left}" y1="${y(value).toFixed(1)}" x2="${width - pad.right}" y2="${y(value).toFixed(1)}" stroke="#dcded8" stroke-width="1" stroke-dasharray="3 4"/><text x="${pad.left - 7}" y="${(y(value) + 4).toFixed(1)}" text-anchor="end" fill="#70756e" font-size="11">${escapeHTML(money(value))}</text>`).join('');
+      const labels = buckets.map((bucket, index) => index % labelStep === 0 || index === buckets.length - 1 ? `<text x="${x(index).toFixed(1)}" y="${height - 10}" text-anchor="middle" fill="#70756e" font-size="11">${escapeHTML(bucket.label)}</text>` : '').join('');
+      const dots = buckets.map((bucket, index) => `<circle class="history-chart-dot" cx="${x(index).toFixed(1)}" cy="${y(bucket.value).toFixed(1)}" r="3.5" fill="#24734a" tabindex="0" role="img" aria-label="${escapeHTML(bucket.label)} ${escapeHTML(money(bucket.value))}" data-chart-label="${escapeHTML(bucket.label)}" data-chart-value="${bucket.value}"><title>${escapeHTML(bucket.label)}：${escapeHTML(money(bucket.value))}</title></circle>`).join('');
+      const defaultIndexes = buckets.map((bucket, index) => Number(bucket.value) !== 0 ? index : -1).filter(index => index >= 0);
+      const defaultLabels = defaultIndexes.map(index => { const bucket = buckets[index]; const first = index === 0; const last = index === buckets.length - 1; const anchor = first ? 'start' : last ? 'end' : 'middle'; const offset = first ? 7 : last ? -7 : 0; return `<text class="history-chart-value-label" x="${(x(index) + offset).toFixed(1)}" y="${Math.max(15, y(bucket.value) - 10).toFixed(1)}" text-anchor="${anchor}">${escapeHTML(money(bucket.value))}</text>`; }).join('');
+      chart.innerHTML = `<div class="history-chart-scroll"><svg class="history-chart-svg" style="width:${width}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="历史消费净支出折线图"><line x1="${pad.left}" y1="${zeroY.toFixed(1)}" x2="${width - pad.right}" y2="${zeroY.toFixed(1)}" stroke="#70756e" stroke-width="1"/><g>${grid}</g><polyline points="${points}" fill="none" stroke="#24734a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${defaultLabels}${dots}<g>${labels}</g></svg></div><div class="history-chart-tooltip" hidden></div>`;
+      bindHistoryChartTooltip(chart);
+    }
+    function renderHistory() {
+      const dateInput = byId('historyDate'); if (!dateInput) return;
+      if (!dateInput.value) dateInput.value = todayISO();
+      const range = historyRange(historyPeriod, dateInput.value);
+      const items = state.expenses.filter(item => { const date = localDate(item.date); return date >= range.start && date <= range.end; }).sort((a, b) => b.date.localeCompare(a.date));
+      const purchaseTotal = items.filter(item => Number(item.amount) > 0).reduce((sum, item) => sum + Number(item.amount), 0);
+      const refundTotal = items.filter(item => Number(item.amount) < 0).reduce((sum, item) => sum + Math.abs(Number(item.amount)), 0);
+      byId('historyPurchaseTotal').textContent = money(purchaseTotal);
+      byId('historyRefundTotal').textContent = money(refundTotal);
+      byId('historyNetTotal').textContent = money(purchaseTotal - refundTotal);
+      byId('historyRangeLabel').textContent = `${historyLabel(historyPeriod, range)} · ${items.length} 笔记录`;
+      renderHistoryChart(historyPeriod, state.expenses);
+      byId('historyExpenseList').innerHTML = items.length ? items.map(item => expenseHTML(item)).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
+      document.querySelectorAll('[data-history-period]').forEach(button => { const active = button.dataset.historyPeriod === historyPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
+    }
+    function renderInventory() {
+      const total = state.inventory.reduce((s, i) => s + Number(i.qty), 0);
+      byId('inventoryCount').textContent = `${state.inventory.length} 种物品，共 ${total.toLocaleString('zh-CN')} 件`;
+      if (!state.inventory.length) { byId('inventoryList').innerHTML = '<div class="empty">先添加家里已有的物品，判断会更准确</div>'; return; }
+      const groups = new Map();
+      [...state.inventory].sort((a, b) => {
+        const expiryA = a.expiry || '9999-12-31'; const expiryB = b.expiry || '9999-12-31';
+        return expiryA.localeCompare(expiryB) || String(a.name).localeCompare(String(b.name), 'zh-CN');
+      }).forEach(item => { const category = item.category || '其他'; if (!groups.has(category)) groups.set(category, []); groups.get(category).push(item); });
+      byId('inventoryList').innerHTML = [...groups.entries()].map(([category, items]) => `<section class="inventory-group"><div class="inventory-group-head"><strong>${escapeHTML(category)}</strong><span class="muted small">${items.length} 种</span></div><div class="list">${items.map(i => {
+        const months = Number(i.monthlyUsage) > 0 ? Number(i.qty) / Number(i.monthlyUsage) : Infinity;
+        const unit = i.unit || '件';
+        const monthsText = Number.isFinite(months) ? `${months.toFixed(1)} 个月用量` : '暂无使用速度';
+        const expiry = i.expiry ? ` · ${i.expiry} 到期` : ' · 未设置限用日期';
+        const image = i.image ? `<img class="inventory-thumb" src="${escapeHTML(i.image)}" alt="${escapeHTML(i.name)}照片">` : '';
+        return `<div class="list-item"><div class="inventory-item-with-image">${image}<div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="item-value">${i.qty} ${escapeHTML(unit)}<div><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
+      }).join('')}</div></section>`).join('');
+      iconRefresh();
+    }
+    function compressInventoryImageSource(source) {
+      return new Promise(resolve => {
+        if (!source) { resolve(''); return; }
+        const image = new Image();
+        image.onload = () => {
+          const maxSize = 360; const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+          const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.width * scale)); canvas.height = Math.max(1, Math.round(image.height * scale));
+          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+          let output = canvas.toDataURL('image/jpeg', .62);
+          if (output.length > 110000) output = canvas.toDataURL('image/jpeg', .46);
+          resolve(output);
+        };
+        image.onerror = () => resolve(''); image.src = source;
+      });
+    }
+    function resizeInventoryImage(file) {
+      return new Promise(resolve => {
+        if (!file) { resolve(''); return; }
+        const reader = new FileReader();
+        reader.onload = () => compressInventoryImageSource(reader.result).then(resolve);
+        reader.onerror = () => resolve(''); reader.readAsDataURL(file);
+      });
+    }
+    async function compactInventoryImages() {
+      await Promise.all(state.inventory.map(async item => {
+        if (item.image && item.image.length > 100000) {
+          const compact = await compressInventoryImageSource(item.image);
+          if (compact) item.image = compact;
+        }
+      }));
+    }
+    function setInventoryImagePreview(data) {
+      const preview = byId('inventoryImagePreview'); preview.src = data || ''; preview.classList.toggle('visible', Boolean(data));
+    }
+    function renderHosts() {
+      byId('hostList').innerHTML = state.hosts.map(h => {
+        const pct = h.perLiveBudget > 0 ? Math.min(100, h.sessionSpent / h.perLiveBudget * 100) : 0;
+        return `<div class="card host-card"><div class="host-top"><div><h3>${escapeHTML(h.name)}</h3><p class="muted small">每场 ${money(h.perLiveBudget)} · 喜欢就买 ${money(h.funBudget)} · 库存上限 ${h.stockCap} 个月</p></div><button class="btn btn-icon btn-ghost" data-edit-host="${h.id}" title="编辑" aria-label="编辑主播"><i data-lucide="pencil"></i></button></div><div><div class="small muted">本场已花 ${money(h.sessionSpent)} / ${money(h.perLiveBudget)}</div><div class="progress"><span style="width:${pct}%"></span></div></div><div class="session"><span class="small muted">新一场直播开始时清零本场金额</span><button class="btn" data-reset-session="${h.id}"><i data-lucide="rotate-ccw"></i>开始新场</button></div></div>`;
+      }).join('');
+    }
+
+    function evaluateDecision(data) {
+      const host = state.hosts.find(h => h.id === data.hostId);
+      const spent = monthSpent(); const stock = categoryStock(data.category);
+      const monthLeft = state.monthlyBudget - spent;
+      const sessionLeft = host.perLiveBudget - host.sessionSpent;
+      const reasons = [];
+      let level = 'green', title = '可以买';
+      if (data.price > monthLeft || data.price > sessionLeft) {
+        level = 'red'; title = '不建议买';
+        if (data.price > monthLeft) reasons.push(`会超出本月预算 ${money(data.price - Math.max(0, monthLeft))}`);
+        if (data.price > sessionLeft) reasons.push(`会超出本场预算 ${money(data.price - Math.max(0, sessionLeft))}`);
+      } else if (data.purpose === 'need' && stock.months >= host.stockCap) {
+        level = 'red'; title = '库存已经足够'; reasons.push(`${data.category}约有 ${Number.isFinite(stock.months) ? stock.months.toFixed(1) : '很多'} 个月用量`);
+      } else if (data.purpose !== 'need') {
+        level = 'amber'; title = '可以买，算娱乐消费';
+        reasons.push('不当作必需品或“省到了”');
+        if (data.price > host.funBudget) { level = 'red'; title = '喜欢就买额度不够'; reasons.push(`超出本场娱乐额度 ${money(data.price - host.funBudget)}`); }
+      } else if (stock.months >= Math.max(2, host.stockCap * .6)) {
+        level = 'amber'; title = '可以买，但建议只买最小份'; reasons.push(`${data.category}还有约 ${stock.months.toFixed(1)} 个月用量`);
+      } else {
+        reasons.push(stock.qty > 0 ? `现有约 ${stock.months.toFixed(1)} 个月用量，尚在合理范围` : '库存中没有同类物品');
+      }
+      if (data.qty > 1 && data.purpose !== 'collect') reasons.push(`整单有 ${data.qty} 件，确认不是为了赠品被动加量`);
+      return { level, title, reasons, stock, host };
+    }
+    function showDecision(data, result) {
+      const icon = result.level === 'green' ? 'circle-check' : result.level === 'amber' ? 'triangle-alert' : 'circle-x';
+      const stockText = result.stock.qty ? `家中同类：${result.stock.qty} 件` : '家中暂无同类库存';
+      const el = byId('decisionResult'); el.className = `result visible ${result.level}`;
+      el.innerHTML = `<div class="result-title"><i data-lucide="${icon}"></i>${result.title}</div><p>${stockText} · 买后本场剩余 ${money(Math.max(0, result.host.perLiveBudget - result.host.sessionSpent - data.price))}</p><ul>${result.reasons.map(r => `<li>${escapeHTML(r)}</li>`).join('')}</ul><div class="btn-row"><button class="btn" id="skipPurchase"><i data-lucide="x"></i>这次不买</button><button class="btn" id="confirmPurchase"><i data-lucide="shopping-bag"></i>已下单，记一笔</button></div>`;
+      iconRefresh(); el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${btn.dataset.page}`));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }));
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
+    document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').classList.remove('open')));
+    document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); }));
+    byId('inventoryModal').addEventListener('click', e => {
+      const quick = e.target.closest('[data-fill-inventory-field]');
+      if (!quick) return;
+      byId(quick.dataset.fillInventoryField).value = quick.dataset.fillInventoryValue || '';
+    });
+
+    byId('chatForm').addEventListener('submit', e => {
+      e.preventDefault();
+      if (speechRecognition) {
+        const activeRecognition = speechRecognition;
+        speechRecognition = null;
+        activeRecognition.onresult = null;
+        activeRecognition.stop();
+        setVoiceState(false);
+      }
+      const text = byId('chatInput').value.trim();
+      addChatMessage(text, 'user');
+      const context = explicitChatContext(text);
+      const hasAmount = Boolean(findChatAmount(text));
+      if (!hasAmount && pendingChatEntries.length && (context.platform || context.date)) {
+        pendingChatEntries = pendingChatEntries.map(item => ({
+          ...item,
+          platform: context.platform || item.platform,
+          date: context.date || item.date
+        }));
+        state.chatContext = {
+          platform: context.platform || state.chatContext.platform,
+          date: context.date || state.chatContext.date
+        };
+        persistState();
+        const changes = [context.platform, context.date].filter(Boolean).join(' · ');
+        addChatMessage(`已把待确认记录改为 ${changes}。`, 'assistant');
+        renderChatPreview();
+        byId('chatInput').value = '';
+        return;
+      }
+      const parsedEntries = parseChatEntries(text);
+      const isContinuation = /^(?:还有|另外|再加|然后|还买|又买|还退|又退)/.test(text);
+      pendingChatEntries = isContinuation && pendingChatEntries.length ? [...pendingChatEntries, ...parsedEntries] : parsedEntries;
+      if (!parsedEntries.length) {
+        addChatMessage('我还没找到明确的金额。可以试试“昨天在淘宝买了衣服230元”。', 'assistant');
+      } else {
+        state.chatContext = { date: parsedEntries[0].date, platform: context.platform || parsedEntries[0].platform };
+        persistState();
+        addChatMessage(`我理解到 ${pendingChatEntries.length} 笔记录，请确认。`, 'assistant');
+      }
+      renderChatPreview();
+      byId('chatInput').value = '';
+    });
+    byId('voiceInputBtn').addEventListener('click', startVoiceInput);
+    byId('chatFeed').addEventListener('click', async e => {
+      const copyButton = e.target.closest('[data-copy-message]');
+      if (!copyButton) return;
+      const text = copyButton.closest('.chat-message').querySelector('.chat-text').textContent;
+      await copyText(text);
+      showToast('已复制这条文字');
+    });
+    byId('chatPreview').addEventListener('click', e => {
+      if (e.target.closest('#cancelChatEntries')) {
+        pendingChatEntries = [];
+        renderChatPreview();
+        byId('chatInput').focus();
+      }
+      if (e.target.closest('#confirmChatEntries') && pendingChatEntries.length) {
+        state.expenses.push(...pendingChatEntries);
+        const count = pendingChatEntries.length;
+        pendingChatEntries = [];
+        renderChatPreview();
+        saveState();
+        addChatMessage(`已记录 ${count} 笔，账单已更新。`, 'assistant');
+      }
+    });
+
+    byId('decisionHost').addEventListener('change', renderSummary);
+    byId('decisionForm').addEventListener('submit', e => {
+      e.preventDefault();
+      pendingDecision = { hostId: byId('decisionHost').value, name: byId('decisionName').value.trim(), category: byId('decisionCategory').value, purpose: byId('decisionPurpose').value, price: Number(byId('decisionPrice').value), qty: Number(byId('decisionQty').value) };
+      showDecision(pendingDecision, evaluateDecision(pendingDecision));
+    });
+    byId('decisionResult').addEventListener('click', e => {
+      if (e.target.closest('#skipPurchase')) { pendingDecision = null; byId('decisionResult').className = 'result'; showToast('这次省下了'); }
+      if (e.target.closest('#confirmPurchase') && pendingDecision) {
+        const host = state.hosts.find(h => h.id === pendingDecision.hostId);
+        host.sessionSpent += pendingDecision.price;
+        state.expenses.push({ id: uid(), name: pendingDecision.name, amount: pendingDecision.price, kind: 'expense', category: pendingDecision.category, platform: '直播间', date: todayISO(), fromLive: true, hostId: host.id });
+        byId('decisionForm').reset(); byId('decisionQty').value = 1; byId('decisionResult').className = 'result'; pendingDecision = null; saveState(); showToast('已记入本场和本月消费');
+      }
+    });
+
+    byId('inventoryForm').addEventListener('submit', async e => {
+      e.preventDefault(); const id = byId('inventoryId').value || uid(); const existing = state.inventory.find(i => i.id === id);
+      const previousState = structuredClone(state);
+      const category = byId('inventoryCategory').value.trim() || '其他'; const unit = byId('inventoryUnit').value.trim() || '件';
+      const item = { id, name: byId('inventoryName').value.trim(), category, qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: inventoryImageData || existing?.image || '' };
+      state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), category])];
+      state.inventoryUnits = [...new Set([...(state.inventoryUnits || defaultInventoryUnits), unit])];
+      if (existing) Object.assign(existing, item); else state.inventory.push(item);
+      await compactInventoryImages();
+      if (!saveState()) {
+        state = previousState;
+        renderAll();
+        const reason = lastPersistError?.name === 'QuotaExceededError' ? '手机本地存储已满，请先删除不用的库存照片' : '保存失败，请重新打开页面后重试';
+        showToast(reason);
+        return;
+      }
+      e.target.reset(); inventoryImageData = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); showToast('库存已保存');
+    });
+    byId('inventoryImage').addEventListener('change', async e => { inventoryImageData = await resizeInventoryImage(e.target.files[0]); setInventoryImagePreview(inventoryImageData); if (inventoryImageData) showToast('照片已添加'); });
+    byId('inventoryList').addEventListener('click', e => {
+      const edit = e.target.closest('[data-edit-inventory]'); const del = e.target.closest('[data-delete-inventory]');
+      if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageData = i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; byId('inventoryCategory').value = i.category; byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
+      if (del && confirm('删除这条库存记录？')) { state.inventory = state.inventory.filter(i => i.id !== del.dataset.deleteInventory); saveState(); }
+    });
+    byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
+    byId('expenseForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const kind = byId('expenseKind').value;
+      const rawAmount = Math.abs(Number(byId('expenseAmount').value));
+      state.expenses.push({ id: uid(), name: byId('expenseName').value.trim() || (kind === 'refund' ? '退款' : '日常消费'), amount: kind === 'refund' ? -rawAmount : rawAmount, kind, platform: byId('expensePlatform').value, category: byId('expenseCategory').value, date: byId('expenseDate').value, fromLive: false });
+      e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseModal').classList.remove('open'); saveState(); showToast(kind === 'refund' ? '退款已记录' : '消费已记录');
+    });
+    byId('expenseList').addEventListener('click', e => { const del = e.target.closest('[data-delete-expense]'); if (del && confirm('删除这笔消费？')) { state.expenses = state.expenses.filter(x => x.id !== del.dataset.deleteExpense); saveState(); } });
+    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; renderHistory(); }));
+    byId('historyDate').addEventListener('change', renderHistory);
+    byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); state.monthlyBudget = Number(byId('monthlyBudget').value); saveState(); showToast('预算已保存'); });
+    byId('hostForm').addEventListener('submit', e => {
+      e.preventDefault(); const id = byId('hostId').value || uid(); const existing = state.hosts.find(h => h.id === id);
+      const item = { id, name: byId('hostName').value.trim(), perLiveBudget: Number(byId('hostBudget').value), funBudget: Number(byId('hostFunBudget').value), stockCap: Number(byId('hostStockCap').value), sessionSpent: existing?.sessionSpent || 0, sessionDate: existing?.sessionDate || todayISO() };
+      if (existing) Object.assign(existing, item); else state.hosts.push(item);
+      e.target.reset(); byId('hostId').value = ''; byId('hostBudget').value = 500; byId('hostFunBudget').value = 200; byId('hostStockCap').value = 6; byId('hostModalTitle').textContent = '添加主播规则'; byId('hostModal').classList.remove('open'); saveState(); showToast('主播规则已保存');
+    });
+    byId('hostList').addEventListener('click', e => {
+      const edit = e.target.closest('[data-edit-host]'); const reset = e.target.closest('[data-reset-session]');
+      if (edit) { const h = state.hosts.find(x => x.id === edit.dataset.editHost); byId('hostId').value = h.id; byId('hostName').value = h.name; byId('hostBudget').value = h.perLiveBudget; byId('hostFunBudget').value = h.funBudget; byId('hostStockCap').value = h.stockCap; byId('hostModalTitle').textContent = '编辑主播规则'; byId('hostModal').classList.add('open'); }
+      if (reset) { const h = state.hosts.find(x => x.id === reset.dataset.resetSession); h.sessionSpent = 0; h.sessionDate = todayISO(); saveState(); showToast('新一场直播已开始'); }
+    });
+    byId('exportBtn').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `慢慢买备份-${todayISO()}.json`; a.click(); URL.revokeObjectURL(url);
+    });
+    byId('importBtn').addEventListener('click', () => byId('importFile').click());
+    byId('importFile').addEventListener('change', async e => { try { const data = JSON.parse(await e.target.files[0].text()); if (!data.hosts || !data.expenses || !data.inventory) throw new Error(); state = { ...defaultState, ...data }; saveState(); showToast('备份已恢复'); } catch { alert('这个备份文件无法读取'); } e.target.value = ''; });
+    byId('openAuthDrawerBtn').addEventListener('click', openAuthDrawer);
+    byId('authDrawerClose').addEventListener('click', closeAuthDrawer);
+    byId('authDrawer').addEventListener('click', e => { if (e.target.id === 'authDrawer') closeAuthDrawer(); });
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuthDrawer(); });
+    byId('authForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        const email = byId('authEmail').value.trim();
+        const password = byId('authPassword').value;
+        setAuthMessage('正在登录...');
+        const { data, error } = await getSupabaseClient().auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        authUser = data.user;
+        setAuthStatus();
+        closeAuthDrawer();
+        byId('authPassword').value = '';
+        await pullCloudState(true);
+        startAutoSync();
+      } catch (error) {
+        const message = friendlyAuthError(error);
+        setSyncStatus(`登录失败：${message}`);
+        setAuthMessage(`登录失败：${message}`, true);
+        showToast('登录失败');
+      }
+    });
+    byId('signUpBtn').addEventListener('click', async () => {
+      try {
+        const email = byId('authEmail').value.trim();
+        const password = byId('authPassword').value;
+        setAuthMessage('正在注册...');
+        const { data, error } = await getSupabaseClient().auth.signUp({ email, password });
+        if (error) throw error;
+        authUser = data.session?.user || null;
+        setSyncStatus(authUser ? '注册成功，已登录' : '注册成功，请查收确认邮件后登录');
+        setAuthMessage(authUser ? '注册成功，已登录' : '注册成功，请查收确认邮件后登录');
+        renderSyncPanel();
+        if (authUser) {
+          closeAuthDrawer();
+          byId('authPassword').value = '';
+          await pullCloudState(true);
+          startAutoSync();
+        }
+      } catch (error) {
+        const message = friendlyAuthError(error);
+        setSyncStatus(`注册失败：${message}`);
+        setAuthMessage(`注册失败：${message}`, true);
+        showToast('注册失败');
+      }
+    });
+    byId('signOutBtn').addEventListener('click', async () => {
+      try {
+        await getSupabaseClient().auth.signOut();
+        authUser = null;
+        stopAutoSync();
+        setAuthStatus();
+        showToast('已退出');
+      } catch (error) {
+        setSyncStatus(`退出失败：${error.message}`);
+      }
+    });
+    window.addEventListener('focus', runAutoSync);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runAutoSync(); });
+
+    window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstallPrompt = e; byId('installBtn').hidden = false; });
+    byId('installBtn').addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; byId('installBtn').hidden = true; });
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+
+    byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
+    byId('expenseDate').value = todayISO();
+    renderAll();
+    if (hasSyncConfig()) refreshAuthUser().then(user => {
+      setAuthStatus();
+      if (user) return pullCloudState().then(startAutoSync);
+    }).catch(error => setSyncStatus(error.message));
+  </script>
+</body>
+</html>
