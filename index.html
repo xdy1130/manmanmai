@@ -405,6 +405,7 @@
       monthlyBudget: 2000,
       hosts: [{ id: 'host-default', name: '我喜欢的主播', perLiveBudget: 500, funBudget: 200, stockCap: 6, sessionSpent: 0, sessionDate: todayISO() }],
       inventory: [],
+      inventoryTombstones: {},
       inventoryCategories: [...categories],
       inventoryUnits: [...defaultInventoryUnits],
       expenses: [],
@@ -434,6 +435,7 @@
         return saved ? {
           ...defaultState,
           ...saved,
+          inventoryTombstones: saved.inventoryTombstones && typeof saved.inventoryTombstones === 'object' ? saved.inventoryTombstones : {},
           inventoryCategories: Array.isArray(saved.inventoryCategories) && saved.inventoryCategories.length ? saved.inventoryCategories : [...new Set([...categories, ...(saved.inventory || []).map(item => item.category).filter(Boolean)])],
           inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
           chatHistory: Array.isArray(saved.chatHistory) ? saved.chatHistory : [],
@@ -538,19 +540,49 @@
       });
       return [...items.values()];
     }
+    function mergeInventoryTombstones(localTombstones = {}, remoteTombstones = {}) {
+      const merged = { ...localTombstones };
+      Object.entries(remoteTombstones).forEach(([id, deletedAt]) => {
+        merged[id] = Math.max(Number(merged[id] || 0), Number(deletedAt || 0));
+      });
+      return merged;
+    }
+    function mergeInventoryById(localItems = [], remoteItems = [], tombstones = {}) {
+      const items = new Map();
+      [...localItems, ...remoteItems].forEach(item => {
+        if (!item?.id) return;
+        const current = items.get(item.id);
+        if (!current || Number(item.updatedAt || 0) >= Number(current.updatedAt || 0)) items.set(item.id, item);
+      });
+      return [...items.values()].filter(item => {
+        const deletedAt = Number(tombstones[item.id] || 0);
+        return !deletedAt || Number(item.updatedAt || 0) > deletedAt;
+      });
+    }
     function mergeState(localState, remoteState) {
+      const inventoryTombstones = mergeInventoryTombstones(localState.inventoryTombstones, remoteState.inventoryTombstones);
       return {
         ...defaultState,
         ...localState,
         ...remoteState,
         hosts: mergeById(localState.hosts, remoteState.hosts),
-        inventory: mergeById(localState.inventory, remoteState.inventory),
+        inventory: mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones),
+        inventoryTombstones,
         expenses: mergeById(localState.expenses, remoteState.expenses),
         inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories)])],
         inventoryUnits: [...new Set([...(localState.inventoryUnits || defaultInventoryUnits), ...(remoteState.inventoryUnits || defaultInventoryUnits)])],
         chatHistory: [...(localState.chatHistory || []), ...(remoteState.chatHistory || [])].slice(-40),
         chatContext: { ...defaultState.chatContext, ...(localState.chatContext || {}), ...(remoteState.chatContext || {}) }
       };
+    }
+    function hasPersonalData(snapshot) {
+      return Boolean(
+        (snapshot.inventory || []).length ||
+        (snapshot.expenses || []).length ||
+        (snapshot.chatHistory || []).length ||
+        Number(snapshot.monthlyBudget) !== Number(defaultState.monthlyBudget) ||
+        (snapshot.hosts || []).some(host => host.id !== 'host-default')
+      );
     }
     async function fetchCloudState() {
       const user = authUser || await refreshAuthUser();
@@ -574,8 +606,13 @@
     async function pullCloudState(showMessage = false) {
       const remoteState = await fetchCloudState();
       if (!remoteState) {
-        await pushCloudState(false);
-        if (showMessage) showToast('云端为空，已上传本机数据');
+        if (hasPersonalData(state)) {
+          await pushCloudState(false);
+          if (showMessage) showToast('云端为空，已上传本机数据');
+        } else {
+          setSyncStatus('云端暂无数据，等待其他设备同步');
+          if (showMessage) showToast('正在等待其他设备的云端数据');
+        }
         return;
       }
       isApplyingCloudState = true;
@@ -702,9 +739,18 @@
       const hasRelativeDate = /今天|昨天|前天/.test(text);
       if (text.includes('前天')) date.setDate(date.getDate() - 2);
       else if (text.includes('昨天')) date.setDate(date.getDate() - 1);
-      const exact = text.match(/(\d{1,2})月(\d{1,2})日/);
-      if (exact) { date.setMonth(Number(exact[1]) - 1); date.setDate(Number(exact[2])); }
-      return exact || hasRelativeDate ? dateISO(date) : (fallback || dateISO(date));
+      const exactWithYear = text.match(/(\d{2,4})年\s*(\d{1,2})月\s*(\d{1,2})[日号]?/);
+      const exact = text.match(/(\d{1,2})月\s*(\d{1,2})[日号]/);
+      if (exactWithYear) {
+        const yearNumber = Number(exactWithYear[1]);
+        date.setFullYear(yearNumber < 100 ? 2000 + yearNumber : yearNumber);
+        date.setMonth(Number(exactWithYear[2]) - 1);
+        date.setDate(Number(exactWithYear[3]));
+      } else if (exact) {
+        date.setMonth(Number(exact[1]) - 1);
+        date.setDate(Number(exact[2]));
+      }
+      return exactWithYear || exact || hasRelativeDate ? dateISO(date) : (fallback || dateISO(date));
     }
     function findChatAmount(text) {
       return text.match(/(?:花了|花费|合计|一共|共|金额是?)?\s*[¥￥]?\s*(\d+(?:\.\d+)?)\s*(?:元|块钱|块)/) || text.match(/(?:花了|花费|退了|退款)\s*[¥￥]?\s*(\d+(?:\.\d+)?)/);
@@ -745,10 +791,11 @@
         if (!amountMatch) return null;
         const isRefund = /退款|退货|退了|退掉|退回/.test(part);
         let name = part.replace(amountMatch[0], '')
-          .replace(/今天|昨天|前天|\d{1,2}月\d{1,2}日/g, '')
+          .replace(/今天|昨天|前天|\d{2,4}年\s*\d{1,2}月\s*\d{1,2}[日号]?|\d{1,2}月\s*\d{1,2}[日号]/g, '')
           .replace(new RegExp(`在?(?:${['抖音','淘宝','京东','拼多多','小红书'].join('|')})`, 'g'), '')
           .replace(/花了|花费|合计|一共|共|金额是?/g, '')
           .replace(/^(?:我)?(?:买了?|入手了?|下单了?|退款了?|退货了?|退了?)/, '')
+          .replace(/给[^，,。；;\s]+(?:买的?|用的?)?/g, '')
           .replace(/^(?:还有|另外|再加|然后)/, '')
           .replace(/^[的了\s]+|[的了\s，,]+$/g, '')
           .trim();
@@ -760,7 +807,7 @@
     }
     function explicitChatContext(text) {
       const platform = ['抖音','淘宝','京东','拼多多','小红书','其他'].find(p => text.includes(p)) || null;
-      const hasDate = /今天|昨天|前天|\d{1,2}月\d{1,2}日/.test(text);
+      const hasDate = /今天|昨天|前天|\d{2,4}年\s*\d{1,2}月\s*\d{1,2}[日号]?|\d{1,2}月\s*\d{1,2}[日号]/.test(text);
       return { platform, date: hasDate ? parseChatDate(text) : null };
     }
     function messageHTML(message) {
@@ -1126,7 +1173,7 @@
       e.preventDefault(); const id = byId('inventoryId').value || uid(); const existing = state.inventory.find(i => i.id === id);
       const previousState = structuredClone(state);
       const category = byId('inventoryCategory').value.trim() || '其他'; const unit = byId('inventoryUnit').value.trim() || '件';
-      const item = { id, name: byId('inventoryName').value.trim(), category, qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: inventoryImageData || existing?.image || '' };
+      const item = { id, name: byId('inventoryName').value.trim(), category, qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: inventoryImageData || existing?.image || '', updatedAt: Date.now() };
       state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), category])];
       state.inventoryUnits = [...new Set([...(state.inventoryUnits || defaultInventoryUnits), unit])];
       if (existing) Object.assign(existing, item); else state.inventory.push(item);
@@ -1144,7 +1191,7 @@
     byId('inventoryList').addEventListener('click', e => {
       const edit = e.target.closest('[data-edit-inventory]'); const del = e.target.closest('[data-delete-inventory]');
       if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageData = i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; byId('inventoryCategory').value = i.category; byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
-      if (del && confirm('删除这条库存记录？')) { state.inventory = state.inventory.filter(i => i.id !== del.dataset.deleteInventory); saveState(); }
+      if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; saveState(); }
     });
     byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
     byId('expenseForm').addEventListener('submit', e => {
