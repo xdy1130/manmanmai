@@ -10,11 +10,7 @@
   <title>慢慢买</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="app-icon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
   <style>
     :root {
       color-scheme: light;
@@ -32,7 +28,7 @@
       --red-soft: #fbe6e3;
       --blue: #356c87;
       --shadow: 0 8px 24px rgba(32, 34, 31, .08);
-      font-family: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
     }
 
     * { box-sizing: border-box; }
@@ -582,6 +578,7 @@
     let deferredInstallPrompt = null;
     let speechRecognition = null;
     let speechBaseText = '';
+    let supabaseScriptPromise = null;
     let inventoryFilter = '全部';
     let inventorySearch = '';
     let chatView = 'today';
@@ -674,8 +671,21 @@
       if (!supabaseClient) supabaseClient = window.supabase.createClient(normalizeSupabaseUrl(syncConfig.supabaseUrl), syncConfig.anonKey);
       return supabaseClient;
     }
+    function loadSupabaseScript() {
+      if (window.supabase) return Promise.resolve();
+      if (supabaseScriptPromise) return supabaseScriptPromise;
+      supabaseScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Supabase 脚本加载失败，请检查网络'));
+        document.head.appendChild(script);
+      });
+      return supabaseScriptPromise;
+    }
     async function refreshAuthUser() {
       if (!hasSyncConfig()) { authUser = null; return null; }
+      await loadSupabaseScript();
       const client = getSupabaseClient();
       const { data, error } = await client.auth.getUser();
       if (error) authUser = null;
@@ -1243,7 +1253,7 @@
         const unit = i.unit || '件';
         const monthsText = Number.isFinite(months) ? `${months.toFixed(1)} 个月用量` : '暂无使用速度';
         const expiry = i.expiry ? ` · ${i.expiry} 到期` : ' · 未设置限用日期';
-        const image = i.image ? `<img class="inventory-thumb" src="${escapeHTML(i.image)}" alt="${escapeHTML(i.name)}照片">` : '';
+        const image = i.image ? `<img class="inventory-thumb" src="${escapeHTML(i.image)}" loading="lazy" decoding="async" alt="${escapeHTML(i.name)}照片">` : '';
         const status = inventoryStatus(i);
         return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
       }).join('')}</div></section>`).join('');
@@ -1503,6 +1513,7 @@
     byId('authForm').addEventListener('submit', async e => {
       e.preventDefault();
       try {
+        await loadSupabaseScript();
         const email = byId('authEmail').value.trim();
         const password = byId('authPassword').value;
         setAuthMessage('正在登录...');
@@ -1524,6 +1535,7 @@
     });
     byId('signUpBtn').addEventListener('click', async () => {
       try {
+        await loadSupabaseScript();
         const email = byId('authEmail').value.trim();
         const password = byId('authPassword').value;
         setAuthMessage('正在注册...');
@@ -1549,6 +1561,7 @@
     });
     byId('signOutBtn').addEventListener('click', async () => {
       try {
+        await loadSupabaseScript();
         await getSupabaseClient().auth.signOut();
         activateGuestState();
         stopAutoSync();
@@ -1570,7 +1583,8 @@
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     byId('expenseDate').value = todayISO();
     renderAll();
-    if (hasSyncConfig()) refreshAuthUser().then(user => {
+    if (window.lucide) iconRefresh();
+    if (hasSyncConfig() && localStorage.getItem('slow-buy-account-scope-v1')) refreshAuthUser().then(user => {
       if (!user) { activateGuestState(); renderAll(); }
       setAuthStatus();
       if (user) { renderAll(); return pullCloudState().then(startAutoSync); }
