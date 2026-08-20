@@ -164,6 +164,24 @@
       .drawer { align-items: center; padding: 16px; }
       .drawer-sheet { border-radius: 12px; max-width: 520px; padding: 18px; }
     }
+    @media (min-width: 900px) {
+      body { font-size: 17px; }
+      .app { max-width: 1160px; padding: 0 34px 118px; }
+      .topbar { padding: 28px 0 22px; }
+      .topbar, .page { max-width: 1040px; margin-inline: auto; }
+      .page.active { min-height: calc(100dvh - 150px); }
+      .summary-grid { gap: 14px; }
+      .summary { padding: 18px; border-radius: 15px; }
+      .summary strong { font-size: 23px; }
+      .summary span { font-size: 15px; }
+      .section-head { margin-top: 28px; }
+      .card { padding: 22px; border-radius: 16px; }
+      .list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .inventory-group .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .history-summary, #historyExpenseList { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #expenseList { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .bottom-nav { width: min(760px, calc(100% - 48px)); border: 1px solid var(--border); border-bottom: 0; border-radius: 18px 18px 0 0; }
+    }
     @media (max-width: 390px) {
       .summary-grid { grid-template-columns: 1fr 1fr; }
       .summary:last-child { grid-column: span 2; }
