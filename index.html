@@ -539,6 +539,7 @@
   <script>
     const STORE_KEY = 'slow-buy-v1';
     const ACCOUNT_SCOPE_MARKER = 'slow-buy-account-scope-v1';
+    const LEGACY_STATE_KEY = 'slow-buy-legacy-before-account-v1';
     const SYNC_CONFIG_KEY = 'slow-buy-sync-config-v1';
     const SUPABASE_PROJECT_URL = 'https://iwqyhzfohjmtscpzenun.supabase.co';
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aST__7_-Gcj6Wi5ZCP0Pxw_fMbWYxp0';
@@ -612,7 +613,13 @@
       const nextKey = accountStoreKey(user);
       const hasAccountCache = Boolean(localStorage.getItem(nextKey));
       const migrationOwner = localStorage.getItem(ACCOUNT_SCOPE_MARKER);
-      if (!hasAccountCache && !migrationOwner && currentStoreKey === STORE_KEY && hasPersonalData(state)) {
+      const legacyState = localStorage.getItem(LEGACY_STATE_KEY);
+      if (!hasAccountCache && !migrationOwner && legacyState) {
+        localStorage.setItem(nextKey, legacyState);
+        localStorage.removeItem(LEGACY_STATE_KEY);
+        localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
+        localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
+      } else if (!hasAccountCache && !migrationOwner && currentStoreKey === STORE_KEY && hasPersonalData(state)) {
         localStorage.setItem(nextKey, JSON.stringify(state));
         localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
         localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
@@ -622,6 +629,7 @@
       authUser = user;
     }
     function activateGuestState() {
+      if (currentStoreKey === STORE_KEY && !localStorage.getItem(ACCOUNT_SCOPE_MARKER) && hasPersonalData(state)) localStorage.setItem(LEGACY_STATE_KEY, JSON.stringify(state));
       currentStoreKey = STORE_KEY;
       state = structuredClone(defaultState);
       persistState();
@@ -1548,9 +1556,10 @@
     byId('expenseDate').value = todayISO();
     renderAll();
     if (hasSyncConfig()) refreshAuthUser().then(user => {
+      if (!user) { activateGuestState(); renderAll(); }
       setAuthStatus();
-      if (user) return pullCloudState().then(startAutoSync);
-    }).catch(error => setSyncStatus(error.message));
+      if (user) { renderAll(); return pullCloudState().then(startAutoSync); }
+    }).catch(error => { activateGuestState(); renderAll(); setSyncStatus(error.message); });
   </script>
 </body>
 </html>
