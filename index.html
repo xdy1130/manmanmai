@@ -538,6 +538,7 @@
 
   <script>
     const STORE_KEY = 'slow-buy-v1';
+    const ACCOUNT_SCOPE_MARKER = 'slow-buy-account-scope-v1';
     const SYNC_CONFIG_KEY = 'slow-buy-sync-config-v1';
     const SUPABASE_PROJECT_URL = 'https://iwqyhzfohjmtscpzenun.supabase.co';
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aST__7_-Gcj6Wi5ZCP0Pxw_fMbWYxp0';
@@ -560,7 +561,8 @@
       chatContext: { date: null, platform: null }
     };
 
-    let state = loadState();
+    let currentStoreKey = STORE_KEY;
+    let state = loadState(currentStoreKey);
     let syncConfig = loadSyncConfig();
     let supabaseClient = null;
     let authUser = null;
@@ -579,9 +581,9 @@
     let inventorySearch = '';
     let chatView = 'today';
 
-    function loadState() {
+    function loadState(storageKey = currentStoreKey) {
       try {
-        const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+        const saved = JSON.parse(localStorage.getItem(storageKey));
         return saved ? {
           ...defaultState,
           ...saved,
@@ -595,7 +597,7 @@
     }
     function persistState() {
       try {
-        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        localStorage.setItem(currentStoreKey, JSON.stringify(state));
         lastPersistError = null;
         return true;
       } catch (error) {
@@ -603,6 +605,29 @@
         console.error('保存本地数据失败', error);
         return false;
       }
+    }
+    function accountStoreKey(user) { return `${STORE_KEY}:account:${user.id}`; }
+    function activateAccountState(user) {
+      if (!user?.id) return;
+      const nextKey = accountStoreKey(user);
+      const hasAccountCache = Boolean(localStorage.getItem(nextKey));
+      const migrationOwner = localStorage.getItem(ACCOUNT_SCOPE_MARKER);
+      if (!hasAccountCache && !migrationOwner && currentStoreKey === STORE_KEY && hasPersonalData(state)) {
+        localStorage.setItem(nextKey, JSON.stringify(state));
+        localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
+        localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
+      }
+      currentStoreKey = nextKey;
+      state = loadState(nextKey);
+      authUser = user;
+    }
+    function activateGuestState() {
+      currentStoreKey = STORE_KEY;
+      state = structuredClone(defaultState);
+      persistState();
+      authUser = null;
+      pendingDecision = null;
+      pendingChatEntries = [];
     }
     function saveState() {
       if (!persistState()) return false;
@@ -632,7 +657,8 @@
       const client = getSupabaseClient();
       const { data, error } = await client.auth.getUser();
       if (error) authUser = null;
-      else authUser = data.user || null;
+      else if (data.user) activateAccountState(data.user);
+      else authUser = null;
       return authUser;
     }
     function setSyncStatus(message, updatedAt = syncConfig.lastSyncedAt) {
@@ -1460,7 +1486,8 @@
         setAuthMessage('正在登录...');
         const { data, error } = await getSupabaseClient().auth.signInWithPassword({ email, password });
         if (error) throw error;
-        authUser = data.user;
+        activateAccountState(data.user);
+        renderAll();
         setAuthStatus();
         closeAuthDrawer();
         byId('authPassword').value = '';
@@ -1481,6 +1508,7 @@
         const { data, error } = await getSupabaseClient().auth.signUp({ email, password });
         if (error) throw error;
         authUser = data.session?.user || null;
+        if (authUser) { activateAccountState(authUser); renderAll(); }
         setSyncStatus(authUser ? '注册成功，已登录' : '注册成功，请查收确认邮件后登录');
         setAuthMessage(authUser ? '注册成功，已登录' : '注册成功，请查收确认邮件后登录');
         renderSyncPanel();
@@ -1500,8 +1528,9 @@
     byId('signOutBtn').addEventListener('click', async () => {
       try {
         await getSupabaseClient().auth.signOut();
-        authUser = null;
+        activateGuestState();
         stopAutoSync();
+        renderAll();
         setAuthStatus();
         showToast('已退出');
       } catch (error) {
