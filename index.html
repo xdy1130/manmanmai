@@ -637,6 +637,16 @@
       pendingDecision = null;
       pendingChatEntries = [];
     }
+    function prepareGuestBootState() {
+      const bootState = state;
+      if (currentStoreKey === STORE_KEY && hasPersonalData(bootState) && !localStorage.getItem(LEGACY_STATE_KEY) && !localStorage.getItem(ACCOUNT_SCOPE_MARKER)) {
+        localStorage.setItem(LEGACY_STATE_KEY, JSON.stringify(bootState));
+      }
+      // Never render the shared legacy cache before the account identity is confirmed.
+      currentStoreKey = STORE_KEY;
+      state = structuredClone(defaultState);
+      persistState();
+    }
     function saveState() {
       if (!persistState()) return false;
       renderAll();
@@ -1552,6 +1562,7 @@
     byId('installBtn').addEventListener('click', async () => { if (!deferredInstallPrompt) return; deferredInstallPrompt.prompt(); await deferredInstallPrompt.userChoice; deferredInstallPrompt = null; byId('installBtn').hidden = true; });
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
 
+    prepareGuestBootState();
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     byId('expenseDate').value = todayISO();
     renderAll();
