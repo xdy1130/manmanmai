@@ -189,6 +189,105 @@
       .form-grid { grid-template-columns: 1fr; }
       .span-2 { grid-column: span 1; }
     }
+
+    /* Product layout v2 */
+    .eyebrow { color: var(--green); font-size: 13px; font-weight: 700; letter-spacing: .08em; }
+    .page-hero { margin-bottom: 18px; }
+    .page-hero h2 { margin-top: 5px; font-size: 25px; line-height: 1.3; }
+    .page-hero p { margin-top: 7px; line-height: 1.6; }
+    .home-hero { padding: 20px; border-radius: 20px; background: linear-gradient(135deg, #153f2d, #286748); color: #fff; box-shadow: 0 14px 34px rgba(24,75,51,.18); }
+    .home-hero .eyebrow, .home-hero .muted { color: rgba(255,255,255,.72); }
+    .home-hero h2 { font-size: 27px; }
+    .home-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.17); }
+    .home-stat { padding-right: 10px; }
+    .home-stat + .home-stat { padding-left: 12px; border-left: 1px solid rgba(255,255,255,.17); }
+    .home-stat span { display: block; color: rgba(255,255,255,.68); font-size: 12px; }
+    .home-stat strong { display: block; margin-top: 4px; font-size: 19px; }
+    .quick-actions { display: grid; grid-template-columns: 1.15fr 1fr; gap: 10px; margin: 14px 0 4px; }
+    .action-card { min-height: 104px; justify-content: flex-start; align-items: flex-start; flex-direction: column; text-align: left; padding: 16px; border-radius: 16px; }
+    .action-card.primary { background: var(--text); border-color: var(--text); color: #fff; }
+    .action-card i { width: 23px; height: 23px; }
+    .action-card strong { font-size: 16px; }
+    .action-card span { color: inherit; opacity: .65; font-size: 12px; font-weight: 400; }
+    .attention-list { display: grid; gap: 8px; }
+    .attention-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 13px; background: var(--surface); border: 1px solid var(--border); }
+    .attention-icon { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 12px; background: var(--amber-soft); color: var(--amber); }
+    .attention-item strong { display: block; font-size: 15px; }
+    .attention-item span { color: var(--muted); font-size: 13px; }
+    .overview-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+    .overview-tile { min-width: 0; padding: 13px 10px; border-radius: 13px; background: var(--surface); border: 1px solid var(--border); }
+    .overview-tile span { display: block; color: var(--muted); font-size: 12px; }
+    .overview-tile strong { display: block; margin-top: 4px; font-size: 18px; }
+    .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin: 12px 0 14px; }
+    .search-field { position: relative; }
+    .search-field i { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .search-field input { padding-left: 42px; background: var(--surface); }
+    .filter-chips { display: flex; gap: 7px; overflow-x: auto; padding: 0 0 12px; scrollbar-width: none; }
+    .filter-chips::-webkit-scrollbar { display: none; }
+    .filter-chip { flex: 0 0 auto; min-height: 36px; padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font-weight: 600; font-size: 13px; }
+    .filter-chip.active { background: var(--text); border-color: var(--text); color: #fff; }
+    .inventory-card { align-items: stretch; padding: 13px; }
+    .inventory-card .inventory-thumb { width: 74px; height: 74px; flex-basis: 74px; border-radius: 12px; }
+    .inventory-card .item-value { display: flex; flex-direction: column; justify-content: space-between; }
+    .status-pill { display: inline-flex; width: fit-content; margin-top: 7px; padding: 3px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 600; }
+    .status-pill.warn { background: var(--amber-soft); color: var(--amber); }
+    .status-pill.danger { background: var(--red-soft); color: var(--red); }
+    .item-actions { display: flex; justify-content: flex-end; }
+    .item-actions .btn-icon { width: 36px; height: 36px; min-height: 36px; }
+    .bill-hero { display: grid; grid-template-columns: 1.3fr repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .bill-total { padding: 19px; border-radius: 17px; background: var(--text); color: #fff; }
+    .bill-total span { color: rgba(255,255,255,.66); font-size: 13px; }
+    .bill-total strong { display: block; margin-top: 5px; font-size: 27px; }
+    .bill-total small { display: block; margin-top: 7px; color: rgba(255,255,255,.58); }
+    .bill-mini { padding: 16px; border-radius: 17px; background: var(--surface); border: 1px solid var(--border); }
+    .bill-mini span { color: var(--muted); font-size: 12px; }
+    .bill-mini strong { display: block; margin-top: 7px; font-size: 19px; }
+    .analysis-card { padding: 16px; border: 1px solid var(--border); border-radius: 17px; background: var(--surface); }
+    .analysis-card .history-chart { border: 0; padding-inline: 0; margin-top: 8px; }
+    .ledger-day { display: grid; gap: 8px; margin-top: 15px; }
+    .ledger-day-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 3px; }
+    .ledger-day-head strong { font-size: 15px; }
+    .ledger-day-head span { color: var(--muted); font-size: 13px; }
+    .refund-value { color: var(--green); }
+    .chat-shell { min-height: calc(100dvh - 188px); display: flex; flex-direction: column; }
+    .chat-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+    .chat-tabs { display: flex; padding: 3px; border-radius: 10px; background: var(--surface-2); }
+    .chat-tab { min-height: 36px; border: 0; padding: 6px 12px; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 600; }
+    .chat-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 5px rgba(32,34,31,.1); }
+    .chat-day-label { margin: 8px auto 2px; padding: 4px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 12px; }
+    .chat-feed { flex: 1; min-height: 180px; max-height: calc(100dvh - 395px); overflow-y: auto; padding-right: 2px; }
+    .chat-compose-wrap { position: sticky; bottom: calc(72px + env(safe-area-inset-bottom)); z-index: 8; margin: auto -4px 0; padding: 10px 4px 4px; background: linear-gradient(transparent, var(--bg) 18%); }
+    .chat-compose { padding: 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 8px 26px rgba(32,34,31,.09); }
+    .chat-compose textarea { min-height: 54px; border: 0; padding: 5px; box-shadow: none; resize: none; }
+    .chat-empty { display: grid; place-items: center; min-height: 210px; color: var(--muted); text-align: center; }
+    .section-toggle { color: var(--green); border: 0; background: transparent; font-weight: 600; }
+    .collapsible-section[hidden] { display: none; }
+    #historyExpenseList { display: block; }
+    @media (min-width: 900px) {
+      .quick-actions { grid-template-columns: 1fr 1fr; }
+      .home-layout { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; align-items: start; }
+      .home-layout .section-head { margin-top: 0; }
+      .inventory-card .inventory-thumb { width: 84px; height: 84px; flex-basis: 84px; }
+      .chat-shell { min-height: calc(100dvh - 190px); max-width: 780px; margin: 0 auto; }
+      .chat-feed { max-height: calc(100dvh - 380px); }
+    }
+    @media (max-width: 600px) {
+      .topbar { padding-top: 16px; }
+      .page-hero h2 { font-size: 23px; }
+      .home-hero { padding: 18px; }
+      .home-hero h2 { font-size: 24px; }
+      .home-stats { grid-template-columns: 1fr 1fr; row-gap: 14px; }
+      .home-stat:nth-child(3) { grid-column: span 2; padding-left: 0; border-left: 0; }
+      .quick-actions { grid-template-columns: 1fr 1fr; }
+      .action-card { min-height: 112px; padding: 14px; }
+      .overview-strip { grid-template-columns: 1fr 1fr; }
+      .bill-hero { grid-template-columns: 1fr 1fr; }
+      .bill-total { grid-column: span 2; }
+      .history-controls { grid-template-columns: 1fr; }
+      .segmented { overflow-x: auto; grid-template-columns: repeat(5, minmax(58px, 1fr)); }
+      .chat-header { align-items: center; }
+      .chat-header .muted { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -205,59 +304,60 @@
     </header>
 
     <section class="page active" id="page-decide">
-      <div class="summary-grid">
-        <div class="summary"><span>本月已花</span><strong id="monthSpent">¥0</strong></div>
-        <div class="summary"><span>本月剩余</span><strong id="monthLeft">¥0</strong></div>
-        <div class="summary"><span>本场剩余</span><strong id="sessionLeft">¥0</strong></div>
+      <div class="home-hero">
+        <span class="eyebrow">慢一点，再决定</span>
+        <h2>今天也把家里的东西用明白</h2>
+        <p class="muted">先看已有库存，再决定要不要为“限时”买单。</p>
+        <div class="home-stats">
+          <div class="home-stat"><span>本月已花</span><strong id="monthSpent">¥0</strong></div>
+          <div class="home-stat"><span>本月预算余量</span><strong id="monthLeft">¥0</strong></div>
+          <div class="home-stat"><span>本场直播余量</span><strong id="sessionLeft">¥0</strong></div>
+        </div>
       </div>
-
-      <div class="section-head"><h2>直播急购判断</h2><span class="pill">约 30 秒</span></div>
+      <div class="quick-actions">
+        <button class="btn action-card primary" id="homeDecisionBtn" type="button"><i data-lucide="scan-search"></i><strong>我想买东西</strong><span>先查库存，再给建议</span></button>
+        <button class="btn action-card" id="homeChatBtn" type="button"><i data-lucide="message-circle-plus"></i><strong>快速记一笔</strong><span>说一句就自动拆分</span></button>
+      </div>
+      <div class="home-layout">
+        <div>
+          <div class="section-head"><h2>现在值得关注</h2><span class="pill">实时</span></div>
+          <div class="attention-list" id="attentionList"></div>
+        </div>
+        <div>
+          <div class="section-head"><h2>最近购买</h2><button class="section-toggle" id="viewAllExpensesBtn" type="button">查看全部</button></div>
+          <div class="list" id="recentPurchases"></div>
+        </div>
+      </div>
+      <div class="section-head"><h2>急购判断</h2><span class="pill">约 30 秒</span></div>
       <form class="card form-grid" id="decisionForm">
-        <label class="span-2">正在看的主播
-          <select id="decisionHost" required></select>
-        </label>
-        <label class="span-2">商品名称
-          <input id="decisionName" required maxlength="40" placeholder="例如：身体乳三件套">
-        </label>
-        <label>商品分类
-          <select id="decisionCategory" required></select>
-        </label>
-        <label>购买目的
-          <select id="decisionPurpose">
-            <option value="need">补货 / 确实需要</option>
-            <option value="like">喜欢 / 支持主播</option>
-            <option value="collect">收藏 / 限定款</option>
-          </select>
-        </label>
-        <label>整单价格（元）
-          <input id="decisionPrice" required inputmode="decimal" type="number" min="0" step="0.01" placeholder="0.00">
-        </label>
-        <label>一共几件
-          <input id="decisionQty" required inputmode="numeric" type="number" min="1" step="1" value="1">
-        </label>
-        <button class="btn btn-primary span-2" type="submit"><i data-lucide="scan-search"></i>帮我判断</button>
+        <label class="span-2">正在看的主播<select id="decisionHost" required></select></label>
+        <label class="span-2">商品名称<input id="decisionName" required maxlength="40" placeholder="例如：身体乳三件套"></label>
+        <label>商品分类<select id="decisionCategory" required></select></label>
+        <label>购买目的<select id="decisionPurpose"><option value="need">补货 / 确实需要</option><option value="like">喜欢 / 支持主播</option><option value="collect">收藏 / 限定款</option></select></label>
+        <label>整单价格（元）<input id="decisionPrice" required inputmode="decimal" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label>一共几件<input id="decisionQty" required inputmode="numeric" type="number" min="1" step="1" value="1"></label>
+        <button class="btn btn-primary span-2" type="submit"><i data-lucide="sparkles"></i>给我一个购买建议</button>
       </form>
       <div class="result" id="decisionResult" aria-live="polite"></div>
-
-      <div class="section-head"><h2>最近购买</h2></div>
-      <div class="list" id="recentPurchases"></div>
     </section>
 
     <section class="page" id="page-inventory">
-      <div class="section-head">
-        <div><h2>家庭库存</h2><p class="muted small" id="inventoryCount"></p></div>
-        <button class="btn" data-open="inventoryModal"><i data-lucide="plus"></i>添加</button>
-      </div>
+      <div class="page-hero"><span class="eyebrow">HOME STOCK</span><h2>家里已经有什么</h2><p class="muted">按分类和限用日期整理，买之前先看一眼。</p></div>
+      <div class="overview-strip" id="inventoryOverview"></div>
+      <div class="toolbar"><div class="search-field"><i data-lucide="search"></i><input id="inventorySearch" type="search" placeholder="搜索库存名称"></div><button class="btn btn-primary" data-open="inventoryModal"><i data-lucide="plus"></i>添加</button></div>
+      <div class="filter-chips" id="inventoryFilters"></div>
+      <div class="section-head"><div><h3>全部库存</h3><p class="muted small" id="inventoryCount"></p></div><span class="pill" id="inventorySortLabel">按限用日期</span></div>
       <div class="list" id="inventoryList"></div>
     </section>
 
     <section class="page" id="page-expenses">
-      <div class="summary-grid">
-        <div class="summary"><span>昨天</span><strong id="todaySpent">¥0</strong></div>
-        <div class="summary"><span>本周</span><strong id="weekSpent">¥0</strong></div>
-        <div class="summary"><span>本月</span><strong id="expenseMonthSpent">¥0</strong></div>
+      <div class="page-hero"><span class="eyebrow">MONEY REVIEW</span><h2>钱都花到哪里了</h2><p class="muted">先看趋势和结论，再回到每一笔流水。</p></div>
+      <div class="bill-hero">
+        <div class="bill-total"><span>本月净支出</span><strong id="expenseMonthSpent">¥0</strong><small id="billCompareText">含消费与退款</small></div>
+        <div class="bill-mini"><span>昨天</span><strong id="todaySpent">¥0</strong></div>
+        <div class="bill-mini"><span>本周</span><strong id="weekSpent">¥0</strong></div>
       </div>
-      <div class="section-head"><h2>历史消费</h2></div>
+      <div class="section-head"><h2>消费趋势</h2><span class="pill">可拖动查看</span></div>
       <div class="history-controls">
         <div class="segmented" role="group" aria-label="统计周期">
           <button class="segment-btn" type="button" data-history-period="day" aria-pressed="false">日</button>
@@ -274,29 +374,30 @@
         <div class="summary"><span>净支出</span><strong id="historyNetTotal">¥0</strong></div>
       </div>
       <p class="muted small" id="historyRangeLabel" style="margin:10px 0 8px"></p>
-      <div class="history-chart">
+      <div class="analysis-card">
         <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">月度趋势</span><span class="muted small">全部历史 · 净支出</span></div>
         <div class="history-chart-plot" id="historyChart" aria-label="历史消费趋势图"></div>
       </div>
-      <div class="list" id="historyExpenseList"></div>
       <div class="section-head">
-        <h2>全部记录</h2>
+        <div><h2>账单流水</h2><p class="muted small">按日期查看每笔消费与退款</p></div>
         <button class="btn" data-open="expenseModal"><i data-lucide="plus"></i>记一笔</button>
       </div>
-      <div class="list" id="expenseList"></div>
+      <div class="list" id="historyExpenseList"></div>
+      <div class="section-head"><button class="section-toggle" id="toggleAllExpensesBtn" type="button">展开全部历史记录</button></div>
+      <div class="list collapsible-section" id="expenseList" hidden></div>
     </section>
 
     <section class="page" id="page-chat">
-      <div class="section-head"><h2>对话记账</h2><span class="pill">本机解析</span></div>
-      <div class="chat-feed" id="chatFeed" aria-live="polite">
-        <div class="chat-message assistant"><span class="chat-text">把消费或退款直接告诉我。例如：“昨天在抖音买了身体乳114元”。</span><button class="chat-copy" type="button" data-copy-message title="复制这条文字" aria-label="复制这条文字"><i data-lucide="copy"></i></button></div>
+      <div class="chat-shell">
+        <div class="chat-header"><div><span class="eyebrow">QUICK ENTRY</span><h2>说一句，账就记好了</h2><p class="muted small">支持一条消息里的多笔消费和退款</p></div><div class="chat-tabs"><button class="chat-tab active" type="button" data-chat-view="today">今天</button><button class="chat-tab" type="button" data-chat-view="history">历史</button></div></div>
+        <div class="chat-feed" id="chatFeed" aria-live="polite"></div>
+        <div class="chat-preview" id="chatPreview"></div>
+        <div class="chat-compose-wrap"><form class="chat-compose" id="chatForm">
+          <label style="display:block"><span class="small muted">消费或退款</span><textarea id="chatInput" required maxlength="300" placeholder="昨天买了衣服230元，还退了精华114元"></textarea></label>
+          <button class="btn btn-icon voice-btn" id="voiceInputBtn" type="button" title="语音转文字" aria-label="开始语音输入" aria-pressed="false"><i data-lucide="mic"></i></button>
+          <button class="btn btn-primary btn-icon" type="submit" title="发送" aria-label="发送"><i data-lucide="send"></i></button>
+        </form></div>
       </div>
-      <form class="chat-compose" id="chatForm">
-        <label style="display:block"><span class="small muted">消费或退款</span><textarea id="chatInput" required maxlength="300" placeholder="昨天买了衣服230元，还退了精华114元"></textarea></label>
-        <button class="btn btn-icon voice-btn" id="voiceInputBtn" type="button" title="语音转文字" aria-label="开始语音输入" aria-pressed="false"><i data-lucide="mic"></i></button>
-        <button class="btn btn-primary btn-icon" type="submit" title="发送" aria-label="发送"><i data-lucide="send"></i></button>
-      </form>
-      <div class="chat-preview" id="chatPreview"></div>
     </section>
 
     <section class="page" id="page-settings">
@@ -337,11 +438,11 @@
   </main>
 
   <nav class="bottom-nav" aria-label="主导航">
-    <button class="nav-btn active" data-page="decide"><i data-lucide="zap"></i><span>急购判断</span></button>
-    <button class="nav-btn" data-page="chat"><i data-lucide="messages-square"></i><span>对话</span></button>
+    <button class="nav-btn active" data-page="decide"><i data-lucide="house"></i><span>首页</span></button>
+    <button class="nav-btn" data-page="chat"><i data-lucide="circle-plus"></i><span>记一笔</span></button>
     <button class="nav-btn" data-page="inventory"><i data-lucide="package-open"></i><span>库存</span></button>
     <button class="nav-btn" data-page="expenses"><i data-lucide="receipt-text"></i><span>账单</span></button>
-    <button class="nav-btn" data-page="settings"><i data-lucide="sliders-horizontal"></i><span>设置</span></button>
+    <button class="nav-btn" data-page="settings"><i data-lucide="user-round"></i><span>我的</span></button>
   </nav>
 
   <div class="modal" id="inventoryModal" role="dialog" aria-modal="true" aria-labelledby="inventoryModalTitle">
@@ -449,6 +550,9 @@
     let deferredInstallPrompt = null;
     let speechRecognition = null;
     let speechBaseText = '';
+    let inventoryFilter = '全部';
+    let inventorySearch = '';
+    let chatView = 'today';
 
     function loadState() {
       try {
@@ -835,11 +939,21 @@
       return `<div class="chat-message ${message.role}"><span class="chat-text">${escapeHTML(message.text)}</span><button class="chat-copy" type="button" data-copy-message title="复制这条文字" aria-label="复制这条文字"><i data-lucide="copy"></i></button></div>`;
     }
     function renderChatHistory() {
-      const messages = state.chatHistory.length ? state.chatHistory : [{ role: 'assistant', text: CHAT_WELCOME }];
-      byId('chatFeed').innerHTML = messages.map(messageHTML).join('');
+      const today = todayISO();
+      const messages = state.chatHistory.filter(message => chatView === 'history' || message.date === today);
+      const visible = messages.length ? messages : [{ role: 'assistant', text: chatView === 'today' ? CHAT_WELCOME : '还没有更早的对话记录。', date: today }];
+      let lastDate = '';
+      byId('chatFeed').innerHTML = visible.map(message => {
+        const label = chatView === 'history' && message.date && message.date !== lastDate ? `<div class="chat-day-label">${escapeHTML(message.date)}</div>` : '';
+        lastDate = message.date || lastDate;
+        return `${label}${messageHTML(message)}`;
+      }).join('');
+      document.querySelectorAll('[data-chat-view]').forEach(button => button.classList.toggle('active', button.dataset.chatView === chatView));
+      const feed = byId('chatFeed');
+      if (chatView === 'today') feed.scrollTop = feed.scrollHeight;
     }
     function addChatMessage(text, role) {
-      state.chatHistory.push({ role, text });
+      state.chatHistory.push({ role, text, date: todayISO() });
       state.chatHistory = state.chatHistory.slice(-40);
       persistState();
       byId('chatFeed').insertAdjacentHTML('beforeend', messageHTML({ role, text }));
@@ -868,7 +982,7 @@
     }
 
     function renderAll() {
-      renderHostSelect(); renderSummary(); renderRecent(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory();
+      renderHostSelect(); renderSummary(); renderRecent(); renderAttention(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory();
       byId('monthlyBudget').value = state.monthlyBudget;
       setAuthStatus();
       iconRefresh();
@@ -889,14 +1003,29 @@
       const start = new Date(); start.setHours(0,0,0,0); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
       byId('weekSpent').textContent = money(expenseTotal(e => new Date(`${e.date}T00:00:00`) >= start));
       byId('expenseMonthSpent').textContent = money(spent);
+      const previous = new Date(); previous.setMonth(previous.getMonth() - 1);
+      const previousSpent = expenseTotal(e => e.date.startsWith(monthKey(previous)));
+      const diff = spent - previousSpent;
+      byId('billCompareText').textContent = previousSpent ? `比上月${diff >= 0 ? '多' : '少'} ${money(Math.abs(diff))}` : '含消费与退款';
     }
     function renderRecent() {
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 4);
       byId('recentPurchases').innerHTML = items.length ? items.map(expenseHTML).join('') : '<div class="empty">还没有购买记录</div>';
     }
+    function renderAttention() {
+      const today = localDate(todayISO());
+      const expiring = state.inventory.filter(item => item.expiry).sort((a, b) => a.expiry.localeCompare(b.expiry)).slice(0, 2);
+      const low = state.inventory.filter(item => Number(item.monthlyUsage) > 0 && Number(item.qty) / Number(item.monthlyUsage) < 1.5).slice(0, 2);
+      const entries = [];
+      expiring.forEach(item => { const days = Math.ceil((localDate(item.expiry) - today) / 86400000); entries.push({ icon: 'calendar-clock', title: `${item.name}${days < 0 ? '已过期' : `还有 ${days} 天到期`}`, text: `${item.qty || 0}${item.unit || '件'} · 建议优先使用`, cls: days < 0 ? 'danger' : 'warn' }); });
+      low.forEach(item => entries.push({ icon: 'package-minus', title: `${item.name}快用完了`, text: `按每月用量估算，还剩约 ${(Number(item.qty) / Number(item.monthlyUsage)).toFixed(1)} 个月`, cls: 'warn' }));
+      const list = entries.slice(0, 3);
+      byId('attentionList').innerHTML = list.length ? list.map(item => `<div class="attention-item"><span class="attention-icon ${item.cls || ''}"><i data-lucide="${item.icon}"></i></span><div><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span></div></div>`).join('') : '<div class="empty">目前没有需要特别处理的库存，状态不错。</div>';
+      iconRefresh();
+    }
     function expenseHTML(e, canDelete = false) {
       const isRefund = Number(e.amount) < 0 || e.kind === 'refund';
-      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}</div></div><div class="item-value">${money(e.amount)}${canDelete ? `<div><button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button></div>` : ''}</div></div>`;
+      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}${canDelete ? `<div><button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button></div>` : ''}</div></div>`;
     }
     function renderExpenses() {
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
@@ -999,15 +1128,34 @@
       byId('historyNetTotal').textContent = money(purchaseTotal - refundTotal);
       byId('historyRangeLabel').textContent = `${historyLabel(historyPeriod, range)} · ${items.length} 笔记录`;
       renderHistoryChart(historyPeriod, state.expenses);
-      byId('historyExpenseList').innerHTML = items.length ? items.map(item => expenseHTML(item)).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
+      const grouped = new Map();
+      items.forEach(item => { if (!grouped.has(item.date)) grouped.set(item.date, []); grouped.get(item.date).push(item); });
+      byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(dayItems.reduce((sum, item) => sum + Number(item.amount), 0))}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
       document.querySelectorAll('[data-history-period]').forEach(button => { const active = button.dataset.historyPeriod === historyPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
+    }
+    function inventoryStatus(item) {
+      const months = Number(item.monthlyUsage) > 0 ? Number(item.qty) / Number(item.monthlyUsage) : Infinity;
+      if (item.expiry && localDate(item.expiry) < localDate(todayISO())) return { text: '已过期', cls: 'danger' };
+      if (months < 1.5) return { text: '快用完', cls: 'warn' };
+      if (months > 12) return { text: '库存偏多', cls: 'warn' };
+      return { text: '库存充足', cls: '' };
+    }
+    function renderInventoryFilters(categoriesToShow) {
+      const buttons = ['全部', ...categoriesToShow];
+      byId('inventoryFilters').innerHTML = buttons.map(category => `<button class="filter-chip ${inventoryFilter === category ? 'active' : ''}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}</button>`).join('');
     }
     function renderInventory() {
       const total = state.inventory.reduce((s, i) => s + Number(i.qty), 0);
+      const expiring = state.inventory.filter(i => i.expiry && localDate(i.expiry) <= new Date(new Date().setDate(new Date().getDate() + 30))).length;
+      const low = state.inventory.filter(i => Number(i.monthlyUsage) > 0 && Number(i.qty) / Number(i.monthlyUsage) < 1.5).length;
+      byId('inventoryOverview').innerHTML = `<div class="overview-tile"><span>物品种类</span><strong>${state.inventory.length}</strong></div><div class="overview-tile"><span>总数量</span><strong>${total.toLocaleString('zh-CN')}</strong></div><div class="overview-tile"><span>30天内到期</span><strong>${expiring}</strong></div><div class="overview-tile"><span>快用完</span><strong>${low}</strong></div>`;
+      const categoriesToShow = [...new Set(state.inventory.map(item => item.category || '其他'))];
+      renderInventoryFilters(categoriesToShow);
       byId('inventoryCount').textContent = `${state.inventory.length} 种物品，共 ${total.toLocaleString('zh-CN')} 件`;
-      if (!state.inventory.length) { byId('inventoryList').innerHTML = '<div class="empty">先添加家里已有的物品，判断会更准确</div>'; return; }
+      const filtered = state.inventory.filter(item => (inventoryFilter === '全部' || (item.category || '其他') === inventoryFilter) && (!inventorySearch || String(item.name || '').toLowerCase().includes(inventorySearch.toLowerCase())));
+      if (!filtered.length) { byId('inventoryList').innerHTML = '<div class="empty">还没有匹配的库存，试试换个分类或直接添加。</div>'; return; }
       const groups = new Map();
-      [...state.inventory].sort((a, b) => {
+      [...filtered].sort((a, b) => {
         const expiryA = a.expiry || '9999-12-31'; const expiryB = b.expiry || '9999-12-31';
         return expiryA.localeCompare(expiryB) || String(a.name).localeCompare(String(b.name), 'zh-CN');
       }).forEach(item => { const category = item.category || '其他'; if (!groups.has(category)) groups.set(category, []); groups.get(category).push(item); });
@@ -1017,7 +1165,8 @@
         const monthsText = Number.isFinite(months) ? `${months.toFixed(1)} 个月用量` : '暂无使用速度';
         const expiry = i.expiry ? ` · ${i.expiry} 到期` : ' · 未设置限用日期';
         const image = i.image ? `<img class="inventory-thumb" src="${escapeHTML(i.image)}" alt="${escapeHTML(i.name)}照片">` : '';
-        return `<div class="list-item"><div class="inventory-item-with-image">${image}<div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="item-value">${i.qty} ${escapeHTML(unit)}<div><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
+        const status = inventoryStatus(i);
+        return `<div class="list-item inventory-card"><div class="inventory-item-with-image">${image}<div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="item-value"><strong>${i.qty} ${escapeHTML(unit)}</strong><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
       }).join('')}</div></section>`).join('');
       iconRefresh();
     }
@@ -1100,6 +1249,17 @@
       document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${btn.dataset.page}`));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }));
+    function goToPage(page) {
+      const nav = document.querySelector(`.nav-btn[data-page="${page}"]`);
+      if (nav) nav.click();
+    }
+    byId('homeDecisionBtn').addEventListener('click', () => { byId('decisionForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); byId('decisionName').focus(); });
+    byId('homeChatBtn').addEventListener('click', () => goToPage('chat'));
+    byId('viewAllExpensesBtn').addEventListener('click', () => goToPage('expenses'));
+    byId('inventorySearch').addEventListener('input', e => { inventorySearch = e.target.value.trim(); renderInventory(); });
+    byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; inventoryFilter = button.dataset.inventoryFilter; renderInventory(); });
+    document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
+    byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').classList.remove('open')));
     document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); }));
