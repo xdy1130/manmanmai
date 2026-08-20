@@ -316,6 +316,10 @@
       .inventory-group .list { grid-template-columns: 1fr; }
       .inventory-card-main { align-items: flex-start; }
     }
+    @media (min-width: 640px) and (max-width: 899px) {
+      .inventory-group .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .inventory-card .inventory-thumb { width: 68px; height: 68px; flex-basis: 68px; }
+    }
   </style>
 </head>
 <body>
