@@ -253,6 +253,9 @@
     .ledger-day-head strong { font-size: 15px; }
     .ledger-day-head span { color: var(--muted); font-size: 13px; }
     .refund-value { color: var(--green); }
+    .expense-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 6px; }
+    .expense-actions .btn { min-height: 32px; padding: 5px 9px; border-radius: 8px; font-size: 12px; }
+    .expense-actions .btn-icon { width: 32px; height: 32px; min-height: 32px; padding: 0; }
     .chat-shell { min-height: calc(100dvh - 188px); display: flex; flex-direction: column; }
     .chat-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
     .chat-tabs { display: flex; padding: 3px; border-radius: 10px; background: var(--surface-2); }
@@ -575,6 +578,7 @@
     let pendingDecision = null;
     let pendingChatEntries = [];
     let inventoryImageData = '';
+    let inventorySourceExpenseId = '';
     let deferredInstallPrompt = null;
     let speechRecognition = null;
     let speechBaseText = '';
@@ -1114,7 +1118,10 @@
     }
     function expenseHTML(e, canDelete = false) {
       const isRefund = Number(e.amount) < 0 || e.kind === 'refund';
-      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}${canDelete ? `<div><button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button></div>` : ''}</div></div>`;
+      const linkedInventory = state.inventory.some(item => item.sourceExpenseId === e.id);
+      const inventoryAction = !isRefund && e.name && e.name !== '日常消费' ? `<button class="btn" data-add-to-inventory="${e.id}" type="button">${linkedInventory ? '已入库存' : '加入库存'}</button>` : '';
+      const deleteAction = canDelete ? `<button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button>` : '';
+      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}<div class="expense-actions">${inventoryAction}${deleteAction}</div></div></div>`;
     }
     function renderExpenses() {
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
@@ -1362,7 +1369,7 @@
     byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; inventoryFilter = button.dataset.inventoryFilter; renderInventory(); });
     document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
     byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
-    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').classList.remove('open')));
     document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); }));
     byId('inventoryModal').addEventListener('click', e => {
@@ -1458,7 +1465,7 @@
       e.preventDefault(); const id = byId('inventoryId').value || uid(); const existing = state.inventory.find(i => i.id === id);
       const previousState = structuredClone(state);
       const category = byId('inventoryCategory').value.trim() || '其他'; const unit = byId('inventoryUnit').value.trim() || '件';
-      const item = { id, name: byId('inventoryName').value.trim(), category, qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: inventoryImageData || existing?.image || '', updatedAt: Date.now() };
+      const item = { id, name: byId('inventoryName').value.trim(), category, qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: inventoryImageData || existing?.image || '', sourceExpenseId: inventorySourceExpenseId || existing?.sourceExpenseId || '', updatedAt: Date.now() };
       state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), category])];
       state.inventoryUnits = [...new Set([...(state.inventoryUnits || defaultInventoryUnits), unit])];
       if (existing) Object.assign(existing, item); else state.inventory.push(item);
@@ -1470,7 +1477,7 @@
         showToast(reason);
         return;
       }
-      e.target.reset(); inventoryImageData = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); showToast('库存已保存');
+      e.target.reset(); inventoryImageData = ''; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); showToast('库存已保存');
     });
     byId('inventoryImage').addEventListener('change', async e => { inventoryImageData = await resizeInventoryImage(e.target.files[0]); setInventoryImagePreview(inventoryImageData); if (inventoryImageData) showToast('照片已添加'); });
     byId('inventoryList').addEventListener('click', e => {
@@ -1486,7 +1493,18 @@
       state.expenses.push({ id: uid(), name: byId('expenseName').value.trim() || (kind === 'refund' ? '退款' : '日常消费'), amount: kind === 'refund' ? -rawAmount : rawAmount, kind, platform: byId('expensePlatform').value, category: byId('expenseCategory').value, date: byId('expenseDate').value, fromLive: false });
       e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseModal').classList.remove('open'); saveState(); showToast(kind === 'refund' ? '退款已记录' : '消费已记录');
     });
-    byId('expenseList').addEventListener('click', e => { const del = e.target.closest('[data-delete-expense]'); if (del && confirm('删除这笔消费？')) { state.expenses = state.expenses.filter(x => x.id !== del.dataset.deleteExpense); saveState(); } });
+    function openInventoryFromExpense(expense) {
+      if (!expense || Number(expense.amount) <= 0) return;
+      if (state.inventory.some(item => item.sourceExpenseId === expense.id)) { showToast('这笔消费已经加入库存'); return; }
+      inventoryImageData = ''; inventorySourceExpenseId = expense.id; setInventoryImagePreview('');
+      byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryName').value = expense.name || ''; byId('inventoryCategory').value = expense.category || '其他'; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryExpiry').value = ''; byId('inventoryModalTitle').textContent = '从账单加入库存'; byId('inventoryModal').classList.add('open');
+    }
+    document.querySelectorAll('#expenseList, #historyExpenseList, #recentPurchases').forEach(list => list.addEventListener('click', e => {
+      const add = e.target.closest('[data-add-to-inventory]');
+      if (add) openInventoryFromExpense(state.expenses.find(item => item.id === add.dataset.addToInventory));
+      const del = e.target.closest('[data-delete-expense]');
+      if (del && confirm('删除这笔消费？')) { state.expenses = state.expenses.filter(x => x.id !== del.dataset.deleteExpense); saveState(); }
+    }));
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; renderHistory(); }));
     byId('historyDate').addEventListener('change', renderHistory);
     byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); state.monthlyBudget = Number(byId('monthlyBudget').value); saveState(); showToast('预算已保存'); });
