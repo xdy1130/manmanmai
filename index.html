@@ -223,6 +223,13 @@
     .filter-chips::-webkit-scrollbar { display: none; }
     .filter-chip { flex: 0 0 auto; min-height: 36px; padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--muted); font-weight: 600; font-size: 13px; }
     .filter-chip.active { background: var(--text); border-color: var(--text); color: #fff; }
+    .inventory-storage { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface); }
+    .inventory-storage-copy { min-width: 0; }
+    .inventory-storage-copy strong { display: block; font-size: 14px; }
+    .inventory-storage-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .inventory-storage .btn { flex: 0 0 auto; min-height: 36px; padding: 7px 10px; font-size: 12px; }
+    .image-remove-btn { display: none; width: fit-content; min-height: 34px; padding: 6px 10px; color: var(--red); font-size: 13px; }
+    .image-remove-btn.visible { display: inline-flex; }
     .inventory-card { display: block; padding: 14px; }
     .inventory-card-main { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
     .inventory-card-main .item-main { flex: 1; min-width: 0; }
@@ -376,6 +383,7 @@
       <div class="page-hero"><span class="eyebrow">HOME STOCK</span><h2>家里已经有什么</h2><p class="muted">按分类和限用日期整理，买之前先看一眼。</p></div>
       <div class="overview-strip" id="inventoryOverview"></div>
       <div class="toolbar"><div class="search-field"><i data-lucide="search"></i><input id="inventorySearch" type="search" placeholder="搜索库存名称"></div><button class="btn btn-primary" data-open="inventoryModal"><i data-lucide="plus"></i>添加</button></div>
+      <div class="inventory-storage"><div class="inventory-storage-copy"><strong>库存照片</strong><span id="inventoryStorageHint">正在统计照片占用空间…</span></div><button class="btn btn-ghost" id="clearInventoryImagesBtn" type="button"><i data-lucide="image-off"></i>清理照片</button></div>
       <div class="filter-chips" id="inventoryFilters"></div>
       <div class="section-head"><div><h3>全部库存</h3><p class="muted small" id="inventoryCount"></p></div><span class="pill" id="inventorySortLabel">按限用日期</span></div>
       <div class="list" id="inventoryList"></div>
@@ -464,7 +472,7 @@
       <label>数量单位（可自定义）<input id="inventoryUnit" list="inventoryUnitOptions" required value="件" placeholder="如：片、克、瓶"><datalist id="inventoryUnitOptions"></datalist><span class="field-help">可选片、克、瓶等，也可以直接输入自己的单位</span><span class="quick-options" id="inventoryUnitQuick" aria-label="已保存的单位"></span></label>
       <label>每月大约用量<input id="inventoryUsage" type="number" min="0" step="0.1" required value="1"></label>
       <label>最早过期日（可不填）<input id="inventoryExpiry" type="date"></label>
-      <label class="span-2">物品照片（可拍照或从相册选择）<input id="inventoryImage" type="file" accept="image/*" capture="environment"><img id="inventoryImagePreview" class="inventory-image-preview" alt="库存照片预览"></label>
+      <label class="span-2">物品照片（可拍照或从相册选择）<input id="inventoryImage" type="file" accept="image/*"><span class="field-help">手机会提供“拍照”或“从相册选择”选项；照片只保存在本机</span><img id="inventoryImagePreview" class="inventory-image-preview" alt="库存照片预览"><button class="btn btn-ghost image-remove-btn" id="removeInventoryImageBtn" type="button"><i data-lucide="trash-2"></i>移除这张照片</button></label>
       <button class="btn btn-primary span-2" type="submit">保存库存</button>
     </form>
   </div>
@@ -931,11 +939,22 @@
       recognition.start();
     }
     function iconRefresh() { if (window.lucide) lucide.createIcons({ attrs: { width: 19, height: 19, 'stroke-width': 1.8 } }); }
-    function categoryOptions(selected = '') { return categories.map(c => `<option${c === selected ? ' selected' : ''}>${c}</option>`).join(''); }
+    function availableCategories() {
+      const saved = state.inventoryCategories || [];
+      const used = [...(state.inventory || []), ...(state.expenses || [])].map(item => item.category).filter(Boolean);
+      const custom = saved.filter(category => !categories.includes(category));
+      const activeDefaults = categories.filter(category => used.includes(category));
+      return [...new Set([...custom, ...activeDefaults, '其他'])];
+    }
+    function categoryOptions(selected = '') {
+      const options = availableCategories();
+      if (selected && !options.includes(selected)) options.unshift(selected);
+      return options.map(c => `<option${c === selected ? ' selected' : ''}>${escapeHTML(c)}</option>`).join('');
+    }
     function inventoryDatalistOptions(values) { return [...new Set(values.filter(Boolean))].map(value => `<option value="${escapeHTML(value)}"></option>`).join(''); }
     function inventoryQuickOptions(values, field) { return [...new Set(values.filter(Boolean))].slice(0, 18).map(value => `<button type="button" class="quick-option" data-fill-inventory-field="${field}" data-fill-inventory-value="${escapeHTML(value)}">${escapeHTML(value)}</button>`).join(''); }
     function renderInventoryInputs() {
-      const savedCategories = state.inventoryCategories || categories;
+      const savedCategories = availableCategories();
       const savedUnits = state.inventoryUnits || defaultInventoryUnits;
       byId('inventoryCategoryOptions').innerHTML = inventoryDatalistOptions(savedCategories);
       byId('inventoryUnitOptions').innerHTML = inventoryDatalistOptions(savedUnits);
@@ -1075,10 +1094,17 @@
     }
 
     function renderAll() {
-      renderHostSelect(); renderSummary(); renderRecent(); renderAttention(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory();
+      renderHostSelect(); renderCategorySelects(); renderSummary(); renderRecent(); renderAttention(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory();
       byId('monthlyBudget').value = state.monthlyBudget;
       setAuthStatus();
       iconRefresh();
+    }
+    function renderCategorySelects() {
+      ['decisionCategory', 'expenseCategory'].forEach(id => {
+        const select = byId(id); const previous = select.value;
+        select.innerHTML = categoryOptions(previous);
+        if (previous && [...select.options].some(option => option.value === previous)) select.value = previous;
+      });
     }
     function renderHostSelect() {
       const select = byId('decisionHost'); const previous = select.value;
@@ -1241,6 +1267,7 @@
       byId('inventoryFilters').innerHTML = buttons.map(category => `<button class="filter-chip ${inventoryFilter === category ? 'active' : ''}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}</button>`).join('');
     }
     function renderInventory() {
+      renderInventoryStorage();
       const total = state.inventory.reduce((s, i) => s + Number(i.qty), 0);
       const expiring = state.inventory.filter(i => i.expiry && localDate(i.expiry) <= new Date(new Date().setDate(new Date().getDate() + 30))).length;
       const low = state.inventory.filter(i => Number(i.monthlyUsage) > 0 && Number(i.qty) / Number(i.monthlyUsage) < 1.5).length;
@@ -1262,7 +1289,7 @@
         const expiry = i.expiry ? ` · ${i.expiry} 到期` : ' · 未设置限用日期';
         const image = i.image ? `<img class="inventory-thumb" src="${escapeHTML(i.image)}" loading="lazy" decoding="async" alt="${escapeHTML(i.name)}照片">` : '';
         const status = inventoryStatus(i);
-        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
+        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button>${i.image ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
       }).join('')}</div></section>`).join('');
       iconRefresh();
     }
@@ -1298,7 +1325,16 @@
       }));
     }
     function setInventoryImagePreview(data) {
-      const preview = byId('inventoryImagePreview'); preview.src = data || ''; preview.classList.toggle('visible', Boolean(data));
+      const preview = byId('inventoryImagePreview'); const hasImage = Boolean(data);
+      preview.src = data || ''; preview.classList.toggle('visible', hasImage);
+      byId('removeInventoryImageBtn').classList.toggle('visible', hasImage);
+    }
+    function renderInventoryStorage() {
+      const imageItems = state.inventory.filter(item => item.image);
+      const characters = imageItems.reduce((sum, item) => sum + String(item.image || '').length, 0);
+      const size = characters * 0.75 / 1024;
+      byId('inventoryStorageHint').textContent = imageItems.length ? `${imageItems.length} 张照片，约 ${size < 1024 ? `${Math.max(1, Math.round(size))} KB` : `${(size / 1024).toFixed(1)} MB`} · 可单独在库存卡片或编辑里移除` : '暂无库存照片，添加时可跳过照片';
+      byId('clearInventoryImagesBtn').disabled = !imageItems.length;
     }
     function renderHosts() {
       byId('hostList').innerHTML = state.hosts.map(h => {
@@ -1471,18 +1507,46 @@
       if (existing) Object.assign(existing, item); else state.inventory.push(item);
       await compactInventoryImages();
       if (!saveState()) {
-        state = previousState;
-        renderAll();
-        const reason = lastPersistError?.name === 'QuotaExceededError' ? '手机本地存储已满，请先删除不用的库存照片' : '保存失败，请重新打开页面后重试';
-        showToast(reason);
-        return;
+        if (lastPersistError?.name === 'QuotaExceededError' && item.image) {
+          item.image = '';
+          if (saveState()) {
+            e.target.reset(); inventoryImageData = ''; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); showToast('库存已保存，照片因本机空间不足未保存');
+            return;
+          }
+        }
+        state = previousState; renderAll();
+        const reason = lastPersistError?.name === 'QuotaExceededError' ? '本机空间不足。可先在“库存照片”里清理照片，再保存这条库存。' : '保存失败，请重新打开页面后重试';
+        showToast(reason); return;
       }
       e.target.reset(); inventoryImageData = ''; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); showToast('库存已保存');
     });
-    byId('inventoryImage').addEventListener('change', async e => { inventoryImageData = await resizeInventoryImage(e.target.files[0]); setInventoryImagePreview(inventoryImageData); if (inventoryImageData) showToast('照片已添加'); });
+    byId('inventoryImage').addEventListener('change', async e => {
+      const input = e.target;
+      const file = input.files?.[0];
+      // 清空 value，保证下次重新拍同一张照片时仍会触发 change。
+      input.value = '';
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { showToast('请选择图片文件'); return; }
+      inventoryImageData = await resizeInventoryImage(file);
+      setInventoryImagePreview(inventoryImageData);
+      showToast(inventoryImageData ? '照片已添加' : '照片读取失败，请重拍或从相册选择');
+    });
+    byId('removeInventoryImageBtn').addEventListener('click', () => {
+      inventoryImageData = '';
+      byId('inventoryImage').value = '';
+      setInventoryImagePreview('');
+      showToast('已移除这张照片，保存后生效');
+    });
+    byId('clearInventoryImagesBtn').addEventListener('click', () => {
+      const count = state.inventory.filter(item => item.image).length;
+      if (!count || !confirm(`移除全部 ${count} 张库存照片？库存记录会保留。`)) return;
+      state.inventory.forEach(item => { item.image = ''; });
+      saveState(); showToast(`已移除 ${count} 张库存照片`);
+    });
     byId('inventoryList').addEventListener('click', e => {
-      const edit = e.target.closest('[data-edit-inventory]'); const del = e.target.closest('[data-delete-inventory]');
+      const edit = e.target.closest('[data-edit-inventory]'); const del = e.target.closest('[data-delete-inventory]'); const removeImage = e.target.closest('[data-remove-inventory-image]');
       if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageData = i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; byId('inventoryCategory').value = i.category; byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
+      if (removeImage && confirm('只移除这件库存的照片？库存记录会保留。')) { const item = state.inventory.find(x => x.id === removeImage.dataset.removeInventoryImage); if (item) { item.image = ''; saveState(); showToast('库存照片已移除'); } }
       if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; saveState(); }
     });
     byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
@@ -1600,6 +1664,7 @@
     prepareGuestBootState();
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     byId('expenseDate').value = todayISO();
+    byId('historyDate').value = todayISO();
     renderAll();
     if (window.lucide) iconRefresh();
     if (hasSyncConfig() && localStorage.getItem('slow-buy-account-scope-v1')) refreshAuthUser().then(user => {
