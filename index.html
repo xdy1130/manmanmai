@@ -234,6 +234,7 @@
     .attention-list { display: grid; gap: 8px; }
     .attention-item { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-radius: 13px; background: var(--surface); border: 1px solid var(--border); }
     .attention-icon { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 12px; background: var(--amber-soft); color: var(--amber); }
+    .attention-thumb { flex:0 0 52px; width:52px; height:52px; object-fit:cover; border-radius:12px; border:1px solid var(--border); background:var(--surface-2); }
     .attention-item strong { display: block; font-size: 15px; }
     .attention-item span { color: var(--muted); font-size: 13px; }
     .overview-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
@@ -351,6 +352,172 @@
       .inventory-group .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .inventory-card .inventory-thumb { width: 68px; height: 68px; flex-basis: 68px; }
     }
+    /* Product polish */
+    .home-hero { position:relative; overflow:hidden; border:0; background:linear-gradient(135deg,#123d2b 0%,#236a48 72%,#2b7954 100%); box-shadow:0 18px 34px rgba(24,75,51,.16); }
+    .home-hero::after { content:''; position:absolute; right:-54px; top:-74px; width:190px; height:190px; border:1px solid rgba(255,255,255,.1); border-radius:50%; box-shadow:0 0 0 26px rgba(255,255,255,.025),0 0 0 52px rgba(255,255,255,.018); pointer-events:none; }
+    .home-hero > * { position:relative; z-index:1; }
+    .quick-actions { margin-top:16px; }
+    .action-card { min-height:106px; border-radius:18px; box-shadow:0 5px 16px rgba(32,34,31,.045); }
+    .action-card.primary { box-shadow:0 10px 22px rgba(32,34,31,.14); }
+    .home-layout { gap:22px; }
+    .home-layout > div { min-width:0; }
+    .home-layout .section-head { margin-bottom:11px; }
+    .home-layout .section-head h2 { font-size:18px; }
+    .attention-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .attention-item { min-height:82px; padding:11px; border:1px solid rgba(220,222,216,.86); border-radius:16px; box-shadow:0 3px 11px rgba(32,34,31,.035); }
+    .attention-item strong { font-size:14px; line-height:1.4; }
+    .attention-item span:not(.attention-icon) { display:block; margin-top:3px; font-size:12px; line-height:1.45; }
+    .attention-icon { flex-basis:44px; width:44px; height:44px; border-radius:14px; }
+    .attention-thumb { flex-basis:54px; width:54px; height:54px; border-radius:14px; }
+    .list-item { border-radius:15px; box-shadow:0 3px 11px rgba(32,34,31,.035); }
+    .home-layout #recentPurchases .list-item { padding:12px 13px; }
+    .page-hero { padding:4px 2px 0; }
+    .page-hero h2 { letter-spacing:-.035em; }
+    @media (max-width:600px) {
+      .attention-list { grid-template-columns:1fr; }
+      .attention-item { min-height:76px; }
+    }
+    .inventory-group-head { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:2px 3px 5px; border:0; background:transparent; color:var(--text); text-align:left; }
+    .inventory-group-head > span { display:flex; align-items:baseline; gap:9px; min-width:0; }
+    .inventory-group-head strong { font-size:18px; }
+    .inventory-group-head small { color:var(--muted); font-size:12px; font-weight:500; }
+    .inventory-group-head > svg { flex:0 0 auto; width:19px; color:var(--muted); transition:transform .2s ease; }
+    .inventory-group.is-collapsed .inventory-group-head > svg { transform:rotate(-90deg); }
+    .inventory-group-content { overflow:hidden; max-height:5000px; opacity:1; transition:max-height .25s ease, opacity .2s ease; }
+    .inventory-group.is-collapsed .inventory-group-content { max-height:0; opacity:0; }
+    .inventory-secondary-actions { display:inline-flex; gap:5px; max-width:0; overflow:hidden; opacity:0; transform:translateX(5px); transition:max-width .2s ease, opacity .2s ease, transform .2s ease; }
+    .inventory-card.actions-open .inventory-secondary-actions { max-width:100px; opacity:1; transform:none; }
+    .inventory-card.actions-open .inventory-more-btn svg { transform:rotate(90deg); }
+    .inventory-more-btn svg { transition:transform .2s ease; }
+    /* Fresh mint theme for the home header */
+    .brand-mark { background:#e4f3e9; color:#2c8057; border:1px solid #cfe8d8; }
+    .home-hero { color:#24543d; background:linear-gradient(135deg,#eaf7ef 0%,#d9f0e2 100%); border:1px solid #cfe8d8; box-shadow:0 14px 30px rgba(66,133,94,.12); }
+    .home-hero::after { border-color:rgba(44,128,87,.11); box-shadow:0 0 0 26px rgba(44,128,87,.035),0 0 0 52px rgba(44,128,87,.022); }
+    .home-hero .eyebrow, .home-hero > p, .home-hero .home-budget-label, .home-budget-foot { color:#71917e; }
+    .home-hero h2, .home-budget-amount, .home-budget-foot strong { color:#24543d; }
+    .home-avatar { background:#c7e8d3; color:#2c8057; border:1px solid #b8dec6; }
+    .home-budget-progress { background:#c5e4d0; }
+    .home-budget-progress span { background:#64b888; }
+    .home-hero .home-stats { border-top-color:#c5e4d0; }
+    .home-hero .home-stat span { color:#71917e; }
+    .home-hero .home-stat strong { color:#2c8057; }
+    .action-card.primary { color:#24543d; background:#cfeedd; border-color:#b9e1c9; box-shadow:0 9px 22px rgba(66,133,94,.13); }
+    .action-card.primary span { color:#648775; opacity:1; }
+    .action-card:not(.primary) { background:#fff; border-color:#dfe9e2; }
+
+    /* Commercial UI system: clearer hierarchy, calmer surfaces, stronger actions */
+    :root {
+      --bg: #f4f7f5;
+      --surface: #ffffff;
+      --surface-2: #edf3ef;
+      --text: #18352b;
+      --muted: #71837b;
+      --border: #dce8e1;
+      --green: #167a55;
+      --green-soft: #e4f5ec;
+      --amber: #a66a18;
+      --amber-soft: #fff3dc;
+      --red: #b34a43;
+      --red-soft: #fbe9e6;
+      --blue: #39758d;
+      --shadow: 0 12px 30px rgba(35, 75, 57, .08);
+    }
+    body { background: radial-gradient(circle at 50% -120px, #e5f4eb 0, var(--bg) 420px); color:var(--text); }
+    .app { padding-bottom:calc(104px + env(safe-area-inset-bottom)); }
+    .topbar { padding-top:20px; padding-bottom:22px; }
+    .brand { gap:11px; }
+    .brand-mark { width:42px; height:42px; border-radius:14px; box-shadow:0 5px 14px rgba(22,122,85,.12); }
+    .brand-mark svg { width:21px; height:21px; }
+    h1 { font-size:23px; letter-spacing:-.04em; }
+    h2 { letter-spacing:-.035em; }
+    .btn { border-radius:13px; border-color:var(--border); box-shadow:0 2px 7px rgba(35,75,57,.035); }
+    .btn:hover { box-shadow:0 6px 16px rgba(35,75,57,.1); }
+    .btn-primary { background:var(--green); border-color:var(--green); color:#fff; box-shadow:0 7px 16px rgba(22,122,85,.16); }
+    .btn-ghost { box-shadow:none; }
+    .page-hero { margin-bottom:20px; padding-top:6px; }
+    .page-hero h2 { font-size:28px; line-height:1.2; }
+    .page-hero p { max-width:520px; margin-top:8px; color:#82928b; }
+    .eyebrow { color:var(--green); font-size:11px; letter-spacing:.13em; }
+    .home-hero { padding:24px; border-radius:24px; background:linear-gradient(145deg,#e8f7ef 0%,#d4eee0 100%); border:1px solid #c9e5d5; box-shadow:0 16px 34px rgba(52,125,86,.12); }
+    .home-hero h2 { font-size:29px; color:#1d5039; }
+    .home-hero .eyebrow, .home-hero > p, .home-hero .home-budget-label, .home-budget-foot { color:#709486; }
+    .home-budget-label { margin-top:26px; font-size:13px; }
+    .home-budget-amount { font-size:42px; line-height:1.05; color:#194c36; }
+    .home-budget-progress { height:9px; margin:18px 0 10px; background:#bdddc9; }
+    .home-budget-progress span { background:#39a871; }
+    .home-budget-foot { font-size:12px; }
+    .home-budget-foot strong { color:#1c6045; }
+    .home-avatar { width:42px; height:42px; flex-basis:42px; background:#bfe4cf; color:#187b55; border-color:#acd9c0; box-shadow:inset 0 1px 0 rgba(255,255,255,.45); }
+    .home-hero .home-stats { margin-top:20px; padding-top:16px; border-top-color:#bdddc9; }
+    .home-hero .home-stat span { color:#73978a; font-size:12px; }
+    .home-hero .home-stat strong { color:#1c6045; font-size:19px; }
+    .quick-actions { gap:12px; margin:16px 0 8px; }
+    .action-card { min-height:116px; padding:17px; border-radius:19px; border-color:var(--border); background:#fff; }
+    .action-card i { color:var(--green); }
+    .action-card strong { margin-top:7px; color:var(--text); font-size:17px; }
+    .action-card span { margin-top:2px; color:#80918a; opacity:1; }
+    .action-card.primary { color:#fff; background:var(--green); border-color:var(--green); box-shadow:0 10px 22px rgba(22,122,85,.18); }
+    .action-card.primary i, .action-card.primary strong { color:#fff; }
+    .action-card.primary span { color:rgba(255,255,255,.72); }
+    .section-head { margin:28px 0 13px; }
+    .section-head h2 { font-size:19px; }
+    .pill { background:var(--green-soft); color:var(--green); border:1px solid #cfe9da; }
+    .attention-item, .list-item, .summary, .overview-tile, .analysis-card, .account-hero, .inventory-storage { border-color:var(--border); box-shadow:0 5px 16px rgba(35,75,57,.045); }
+    .attention-item { background:rgba(255,255,255,.86); }
+    .attention-icon { background:var(--amber-soft); }
+    .overview-strip { gap:10px; }
+    .overview-tile { border-radius:15px; padding:15px 12px; }
+    .overview-tile strong { color:var(--text); }
+    .toolbar { margin-top:14px; }
+    .search-field input, input, select, textarea { border-radius:13px; border-color:var(--border); background:#fbfdfc; }
+    .filter-chip { border-color:var(--border); background:#fff; }
+    .filter-chip.active { background:var(--green); border-color:var(--green); }
+    .inventory-storage { background:#fbfdfc; }
+    .inventory-card { border-radius:17px; }
+    .status-pill { background:var(--green-soft); color:var(--green); }
+    .bill-total { border-radius:20px; background:linear-gradient(145deg,#1a5e43,#278a60); box-shadow:0 11px 24px rgba(22,122,85,.15); }
+    .bill-mini { border-radius:17px; }
+    .analysis-card { border-radius:19px; }
+    .chat-compose { border-radius:19px; }
+    .chat-message.user { background:var(--green); border-color:var(--green); }
+    .settings-entry { border-color:var(--border); background:rgba(255,255,255,.9); box-shadow:0 4px 13px rgba(35,75,57,.04); }
+    .settings-entry-icon { background:var(--green-soft); color:var(--green); }
+    .bottom-nav { width:min(760px,calc(100% - 24px)); grid-template-columns:repeat(4,1fr); bottom:10px; border:1px solid var(--border); border-radius:20px; background:rgba(255,255,255,.9); box-shadow:0 10px 28px rgba(35,75,57,.12); padding:6px 7px calc(6px + env(safe-area-inset-bottom)); }
+    .nav-btn { min-height:54px; border-radius:15px; }
+    .nav-btn.active { background:var(--green-soft); color:var(--green); box-shadow:none; }
+    .nav-btn.active svg { stroke-width:2.5; }
+    .profile-trigger { width:42px; height:42px; min-height:42px; border-radius:50%; background:var(--green-soft); color:var(--green); border-color:#cce8d8; }
+    .profile-trigger svg { width:20px; height:20px; }
+    .profile-drawer { align-items:stretch; justify-content:flex-end; }
+    .profile-drawer .drawer-sheet { width:min(390px, 92vw); height:100%; max-height:none; border-radius:24px 0 0 24px; padding:24px 20px calc(24px + env(safe-area-inset-bottom)); transform:translateX(18px); animation:profileIn .22s ease forwards; }
+    .profile-head { display:flex; align-items:center; gap:13px; padding:7px 0 22px; border-bottom:1px solid var(--border); }
+    .profile-avatar { display:grid; place-items:center; width:54px; height:54px; border-radius:18px; background:var(--green-soft); color:var(--green); }
+    .profile-copy { min-width:0; }
+    .profile-copy strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:17px; }
+    .profile-copy span { display:block; margin-top:4px; color:var(--muted); font-size:13px; }
+    .profile-menu { display:grid; gap:8px; margin-top:20px; }
+    .profile-menu button { min-height:64px; display:grid; grid-template-columns:40px minmax(0,1fr) 18px; align-items:center; gap:11px; width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:16px; background:#fbfdfc; color:var(--text); text-align:left; }
+    .profile-menu button:active { background:var(--green-soft); }
+    .profile-menu-icon { display:grid; place-items:center; width:40px; height:40px; border-radius:13px; background:var(--surface-2); color:var(--green); }
+    .profile-menu strong { display:block; font-size:14px; }
+    .profile-menu small { display:block; margin-top:3px; color:var(--muted); font-size:12px; }
+    .profile-menu > button > svg { color:var(--muted); }
+    @keyframes profileIn { to { transform:translateX(0); } }
+    @media (min-width:900px) {
+      .app { padding-bottom:124px; }
+      .topbar { padding-top:30px; }
+      .home-hero { padding:30px; }
+      .home-budget-amount { font-size:48px; }
+      .bottom-nav { bottom:18px; }
+    }
+    @media (max-width:600px) {
+      .app { padding-inline:14px; }
+      .topbar { padding-top:16px; }
+      .home-hero { padding:21px; border-radius:22px; }
+      .home-hero h2 { font-size:26px; }
+      .home-budget-amount { font-size:38px; }
+      .bottom-nav { width:calc(100% - 20px); bottom:8px; }
+    }
   </style>
 </head>
 <body>
@@ -362,6 +529,7 @@
       </div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-icon btn-ghost" id="quickExpenseBtn" title="快速记账" aria-label="快速记账"><i data-lucide="notebook-pen"></i></button>
+        <button class="btn btn-icon profile-trigger" id="profileBtn" title="打开我的" aria-label="打开我的"><i data-lucide="user-round"></i></button>
         <button class="btn btn-icon btn-ghost" id="installBtn" hidden title="添加到手机桌面" aria-label="添加到手机桌面"><i data-lucide="download"></i></button>
       </div>
     </header>
@@ -492,7 +660,7 @@
     <button class="nav-btn active" data-page="decide"><i data-lucide="house"></i><span>首页</span></button>
     <button class="nav-btn" data-page="chat"><i data-lucide="circle-plus"></i><span>记一笔</span></button>
     <button class="nav-btn" data-page="inventory"><i data-lucide="package-open"></i><span>库存</span></button>
-    <button class="nav-btn" data-page="settings"><i data-lucide="user-round"></i><span>我的</span></button>
+    <button class="nav-btn" data-page="expenses"><i data-lucide="receipt-text"></i><span>账单</span></button>
   </nav>
 
   <div class="modal" id="inventoryModal" role="dialog" aria-modal="true" aria-labelledby="inventoryModalTitle">
@@ -557,6 +725,19 @@
       <p class="small" id="authMessage" role="status"></p>
       <p class="muted small">云端连接已内置，不需要再填写 URL 或 key。</p>
     </form>
+  </div>
+
+  <div class="drawer profile-drawer" id="profileDrawer" role="dialog" aria-modal="true" aria-labelledby="profileDrawerTitle">
+    <section class="drawer-sheet" aria-label="我的功能">
+      <div class="drawer-head"><div><span class="eyebrow">MY SPACE</span><h2 id="profileDrawerTitle">我的</h2></div><button class="btn btn-icon btn-ghost" id="profileDrawerClose" type="button" aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <div class="profile-head"><span class="profile-avatar"><i data-lucide="user-round"></i></span><div class="profile-copy"><strong id="profileAccountName">未登录</strong><span id="profileAccountHint">登录后可在多个设备同步数据</span></div><button class="btn btn-primary" id="profileAuthBtn" type="button">登录</button></div>
+      <div class="profile-menu">
+        <button type="button" data-profile-page="expenses"><span class="profile-menu-icon"><i data-lucide="receipt-text"></i></span><span><strong>账单与趋势</strong><small>查看消费、退款和预算变化</small></span><i data-lucide="chevron-right"></i></button>
+        <button type="button" data-profile-settings="budget"><span class="profile-menu-icon"><i data-lucide="wallet-cards"></i></span><span><strong>预算与主播规则</strong><small>管理每月预算和直播额度</small></span><i data-lucide="chevron-right"></i></button>
+        <button type="button" data-profile-settings="data"><span class="profile-menu-icon"><i data-lucide="database-backup"></i></span><span><strong>数据备份</strong><small>导出或恢复本机数据</small></span><i data-lucide="chevron-right"></i></button>
+        <button type="button" data-profile-settings="sync"><span class="profile-menu-icon"><i data-lucide="cloud-cog"></i></span><span><strong>云端同步</strong><small>登录后在多个设备保持一致</small></span><i data-lucide="chevron-right"></i></button>
+      </div>
+    </section>
   </div>
 
   <div class="drawer" id="settingsDrawer" role="dialog" aria-modal="true" aria-labelledby="settingsDrawerTitle">
@@ -630,6 +811,8 @@
     let supabaseScriptPromise = null;
     let inventoryFilter = '全部';
     let inventorySearch = '';
+    let inventoryCollapsedCategories = new Set();
+    let inventoryCategoryViewReady = false;
     let chatView = 'today';
     let decisionStep = 1;
 
@@ -773,7 +956,7 @@
       return raw ? `操作失败：${raw}` : '操作失败，请稍后再试。';
     }
     function setAuthStatus() {
-      if (!hasSyncConfig()) { setSyncStatus('未配置同步'); return; }
+      if (!hasSyncConfig()) { setSyncStatus('未配置同步'); renderSyncPanel(); return; }
       setSyncStatus(authUser ? `自动同步已开启：${authUser.email || authUser.id}` : '请登录以开启自动同步');
       renderSyncPanel();
     }
@@ -788,9 +971,15 @@
       const heroName = byId('accountHeroName');
       const heroHint = byId('accountHeroHint');
       const heroAction = byId('accountHeroAction');
+      const profileName = byId('profileAccountName');
+      const profileHint = byId('profileAccountHint');
+      const profileAuth = byId('profileAuthBtn');
       if (heroName) heroName.textContent = authUser ? (authUser.email || '已登录账号') : '未登录';
       if (heroHint) heroHint.textContent = authUser ? '数据已开启自动同步' : '登录后可在多个设备自动同步';
       if (heroAction) { heroAction.textContent = authUser ? '同步中' : '登录 / 注册'; heroAction.disabled = Boolean(authUser); }
+      if (profileName) profileName.textContent = authUser ? (authUser.email || '已登录账号') : '未登录';
+      if (profileHint) profileHint.textContent = authUser ? '数据已开启自动同步' : '登录后可在多个设备同步数据';
+      if (profileAuth) profileAuth.textContent = authUser ? '已登录' : '登录';
     }
     function openAuthDrawer() {
       const drawer = byId('authDrawer');
@@ -1180,10 +1369,10 @@
       const expiring = state.inventory.filter(item => item.expiry).sort((a, b) => a.expiry.localeCompare(b.expiry)).slice(0, 2);
       const low = state.inventory.filter(item => Number(item.monthlyUsage) > 0 && Number(item.qty) / Number(item.monthlyUsage) < 1.5).slice(0, 2);
       const entries = [];
-      expiring.forEach(item => { const days = Math.ceil((localDate(item.expiry) - today) / 86400000); entries.push({ icon: 'calendar-clock', title: `${item.name}${days < 0 ? '已过期' : `还有 ${days} 天到期`}`, text: `${item.qty || 0}${item.unit || '件'} · 建议优先使用`, cls: days < 0 ? 'danger' : 'warn' }); });
-      low.forEach(item => entries.push({ icon: 'package-minus', title: `${item.name}快用完了`, text: `按每月用量估算，还剩约 ${(Number(item.qty) / Number(item.monthlyUsage)).toFixed(1)} 个月`, cls: 'warn' }));
+      expiring.forEach(item => { const days = Math.ceil((localDate(item.expiry) - today) / 86400000); entries.push({ icon: 'calendar-clock', image: inventoryImageCache.get(item.id) || item.image || '', title: `${item.name}${days < 0 ? '已过期' : `还有 ${days} 天到期`}`, text: `${item.qty || 0}${item.unit || '件'} · 建议优先使用`, cls: days < 0 ? 'danger' : 'warn' }); });
+      low.forEach(item => entries.push({ icon: 'package-minus', image: inventoryImageCache.get(item.id) || item.image || '', title: `${item.name}快用完了`, text: `按每月用量估算，还剩约 ${(Number(item.qty) / Number(item.monthlyUsage)).toFixed(1)} 个月`, cls: 'warn' }));
       const list = entries.slice(0, 3);
-      byId('attentionList').innerHTML = list.length ? list.map(item => `<div class="attention-item"><span class="attention-icon ${item.cls || ''}"><i data-lucide="${item.icon}"></i></span><div><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span></div></div>`).join('') : '<div class="empty">目前没有需要特别处理的库存，状态不错。</div>';
+      byId('attentionList').innerHTML = list.length ? list.map(item => `<div class="attention-item">${item.image ? `<img class="attention-thumb" src="${escapeHTML(item.image)}" loading="lazy" decoding="async" alt="${escapeHTML(item.title)}照片">` : `<span class="attention-icon ${item.cls || ''}"><i data-lucide="${item.icon}"></i></span>`}<div><strong>${escapeHTML(item.title)}</strong><span>${escapeHTML(item.text)}</span></div></div>`).join('') : '<div class="empty">目前没有需要特别处理的库存，状态不错。</div>';
       iconRefresh();
     }
     function expenseHTML(e, canDelete = false) {
@@ -1326,7 +1515,13 @@
         const expiryA = a.expiry || '9999-12-31'; const expiryB = b.expiry || '9999-12-31';
         return expiryA.localeCompare(expiryB) || String(a.name).localeCompare(String(b.name), 'zh-CN');
       }).forEach(item => { const category = item.category || '其他'; if (!groups.has(category)) groups.set(category, []); groups.get(category).push(item); });
-      byId('inventoryList').innerHTML = [...groups.entries()].map(([category, items]) => `<section class="inventory-group"><div class="inventory-group-head"><strong>${escapeHTML(category)}</strong><span class="muted small">${items.length} 种</span></div><div class="list">${items.map(i => {
+      if (!inventoryCategoryViewReady) {
+        [...groups.keys()].slice(1).forEach(category => inventoryCollapsedCategories.add(category));
+        inventoryCategoryViewReady = true;
+      }
+      byId('inventoryList').innerHTML = [...groups.entries()].map(([category, items]) => {
+        const collapsed = inventoryCollapsedCategories.has(category);
+        return `<section class="inventory-group ${collapsed ? 'is-collapsed' : ''}" data-inventory-group="${escapeHTML(category)}"><button class="inventory-group-head" type="button" data-toggle-inventory-group="${escapeHTML(category)}" aria-expanded="${String(!collapsed)}"><span><strong>${escapeHTML(category)}</strong><small>${items.length} 种物品 · ${collapsed ? '点击展开' : '点击收起'}</small></span><i data-lucide="chevron-down"></i></button><div class="list inventory-group-content">${items.map(i => {
         const months = Number(i.monthlyUsage) > 0 ? Number(i.qty) / Number(i.monthlyUsage) : Infinity;
         const unit = i.unit || '件';
         const monthsText = Number.isFinite(months) ? `${months.toFixed(1)} 个月用量` : '暂无使用速度';
@@ -1334,8 +1529,9 @@
         const imageData = inventoryImageCache.get(i.id) || i.image || '';
         const image = imageData ? `<img class="inventory-thumb" src="${escapeHTML(imageData)}" loading="lazy" decoding="async" alt="${escapeHTML(i.name)}照片">` : '';
         const status = inventoryStatus(i);
-        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button>${imageData ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></div></div></div>`;
-      }).join('')}</div></section>`).join('');
+        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost inventory-more-btn" data-toggle-inventory-actions="${i.id}" title="更多操作" aria-label="展开更多操作"><i data-lucide="more-horizontal"></i></button><span class="inventory-secondary-actions">${imageData ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></span></div></div></div>`;
+      }).join('')}</div></section>`;
+      }).join('');
       iconRefresh();
     }
     function compressInventoryImageSource(source) {
@@ -1426,7 +1622,7 @@
           }
           if (data) inventoryImageCache.set(item.id, data);
         }));
-        renderInventory();
+        renderInventory(); renderAttention();
       } catch (error) {
         console.warn('库存照片数据库不可用', error);
       }
@@ -1490,7 +1686,11 @@
     }
 
     document.querySelectorAll('.nav-btn').forEach(btn => btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-current', active ? 'page' : 'false');
+      });
       document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${btn.dataset.page}`));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }));
@@ -1518,6 +1718,16 @@
     byId('homeDecisionBtn').addEventListener('click', () => { updateDecisionStep(1); byId('decisionForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => byId('decisionName').focus(), 220); });
     byId('homeChatBtn').addEventListener('click', () => goToPage('chat'));
     byId('viewAllExpensesBtn').addEventListener('click', () => goToPage('expenses'));
+    byId('profileBtn').addEventListener('click', () => { byId('profileDrawer').classList.add('open'); iconRefresh(); });
+    byId('profileDrawerClose').addEventListener('click', () => byId('profileDrawer').classList.remove('open'));
+    byId('profileDrawer').addEventListener('click', e => {
+      if (e.target.id === 'profileDrawer') byId('profileDrawer').classList.remove('open');
+      const pageButton = e.target.closest('[data-profile-page]');
+      if (pageButton) { byId('profileDrawer').classList.remove('open'); goToPage(pageButton.dataset.profilePage); }
+      const settingsButton = e.target.closest('[data-profile-settings]');
+      if (settingsButton) { byId('profileDrawer').classList.remove('open'); openSettingsDrawer(settingsButton.dataset.profileSettings); }
+    });
+    byId('profileAuthBtn').addEventListener('click', () => { byId('profileDrawer').classList.remove('open'); openAuthDrawer(); });
     document.querySelectorAll('[data-go-page]').forEach(button => button.addEventListener('click', () => goToPage(button.dataset.goPage)));
     byId('accountHeroAction').addEventListener('click', openAuthDrawer);
     function openSettingsDrawer(section) {
@@ -1539,6 +1749,9 @@
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').classList.remove('open')));
     document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); }));
+    document.querySelectorAll('.modal, .drawer').forEach(layer => layer.addEventListener('click', e => {
+      if (e.target === layer) layer.classList.remove('open');
+    }));
     byId('inventoryModal').addEventListener('click', e => {
       const quick = e.target.closest('[data-fill-inventory-field]');
       if (!quick) return;
@@ -1643,7 +1856,7 @@
         showToast(reason); return;
       }
       try { if (selectedImage) await saveInventoryImage(id, selectedImage); else await deleteInventoryImage(id); } catch { showToast('库存已保存，但照片暂未保存'); }
-      e.target.reset(); inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); renderInventory(); showToast(selectedImage ? '库存和照片已保存' : '库存已保存');
+      e.target.reset(); inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); renderInventory(); renderAttention(); showToast(selectedImage ? '库存和照片已保存' : '库存已保存');
     });
     byId('inventoryImage').addEventListener('change', async e => {
       const input = e.target;
@@ -1665,16 +1878,34 @@
       showToast('已移除这张照片，保存后生效');
     });
     byId('clearInventoryImagesBtn').addEventListener('click', () => {
-      const count = state.inventory.filter(item => item.image).length;
+      const count = state.inventory.filter(item => item.image || inventoryImageCache.has(item.id)).length;
       if (!count || !confirm(`移除全部 ${count} 张库存照片？库存记录会保留。`)) return;
       state.inventory.forEach(item => { item.image = ''; });
-      clearInventoryImages().then(() => { saveState(); showToast(`已移除 ${count} 张库存照片`); }).catch(() => showToast('照片清理失败，请稍后重试'));
+      clearInventoryImages().then(() => { saveState(); renderInventory(); renderAttention(); showToast(`已移除 ${count} 张库存照片`); }).catch(() => showToast('照片清理失败，请稍后重试'));
     });
     byId('inventoryList').addEventListener('click', e => {
+      const groupToggle = e.target.closest('[data-toggle-inventory-group]');
+      const more = e.target.closest('[data-toggle-inventory-actions]');
       const edit = e.target.closest('[data-edit-inventory]'); const del = e.target.closest('[data-delete-inventory]'); const removeImage = e.target.closest('[data-remove-inventory-image]');
+      if (groupToggle) {
+        const category = groupToggle.dataset.toggleInventoryGroup;
+        const group = groupToggle.closest('[data-inventory-group]');
+        const collapsed = inventoryCollapsedCategories.has(category);
+        if (collapsed) inventoryCollapsedCategories.delete(category); else inventoryCollapsedCategories.add(category);
+        group.classList.toggle('is-collapsed', !collapsed);
+        groupToggle.setAttribute('aria-expanded', String(collapsed));
+        groupToggle.querySelector('small').textContent = `${group.querySelectorAll('.inventory-card').length} 种物品 · ${collapsed ? '点击收起' : '点击展开'}`;
+        return;
+      }
+      if (more) {
+        const card = more.closest('.inventory-card');
+        const open = card.classList.toggle('actions-open');
+        more.setAttribute('aria-expanded', String(open));
+        return;
+      }
       if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageRemoved = false; inventoryImageData = inventoryImageCache.get(i.id) || i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; byId('inventoryCategory').value = i.category; byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
       if (removeImage && confirm('只移除这件库存的照片？库存记录会保留。')) { const item = state.inventory.find(x => x.id === removeImage.dataset.removeInventoryImage); if (item) { item.image = ''; deleteInventoryImage(item.id).then(() => { saveState(); showToast('库存照片已移除'); }).catch(() => showToast('照片移除失败，请稍后重试')); } }
-      if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; deleteInventoryImage(deletedId).then(saveState).catch(saveState); }
+      if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; deleteInventoryImage(deletedId).then(() => { saveState(); renderInventory(); renderAttention(); showToast('库存记录已删除'); }).catch(() => { saveState(); renderInventory(); renderAttention(); }); }
     });
     byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
     byId('expenseForm').addEventListener('submit', e => {
@@ -1718,7 +1949,11 @@
     byId('openAuthDrawerBtn').addEventListener('click', openAuthDrawer);
     byId('authDrawerClose').addEventListener('click', closeAuthDrawer);
     byId('authDrawer').addEventListener('click', e => { if (e.target.id === 'authDrawer') closeAuthDrawer(); });
-    window.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuthDrawer(); });
+    window.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      closeAuthDrawer();
+      document.querySelectorAll('.modal.open, .drawer.open').forEach(layer => layer.classList.remove('open'));
+    });
     byId('authForm').addEventListener('submit', async e => {
       e.preventDefault();
       try {
