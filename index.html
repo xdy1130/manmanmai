@@ -269,6 +269,12 @@
     .status-pill { display: inline-flex; width: fit-content; margin-top: 7px; padding: 3px 8px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 600; }
     .status-pill.warn { background: var(--amber-soft); color: var(--amber); }
     .status-pill.danger { background: var(--red-soft); color: var(--red); }
+    .inventory-meter { margin-top:11px; }
+    .inventory-meter .progress { margin-top:0; height:8px; background:#edf1ef; }
+    .inventory-meter .progress > span { background:var(--green); transition:width .25s ease, background .2s ease; }
+    .inventory-meter.warn .progress > span { background:#d79b43; }
+    .inventory-meter.danger .progress > span { background:var(--red); }
+    .inventory-meter-caption { display:flex; justify-content:space-between; gap:8px; margin-top:5px; color:var(--muted); font-size:11px; }
     .item-actions { display: flex; justify-content: flex-end; }
     .item-actions .btn-icon { width: 36px; height: 36px; min-height: 36px; }
     .bill-hero { display: grid; grid-template-columns: 1.3fr repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
@@ -811,6 +817,7 @@
     let supabaseScriptPromise = null;
     let inventoryFilter = '全部';
     let inventorySearch = '';
+    let inventoryDraftCategory = '';
     let inventoryCollapsedCategories = new Set();
     let inventoryCategoryViewReady = false;
     let chatView = 'today';
@@ -1529,7 +1536,11 @@
         const imageData = inventoryImageCache.get(i.id) || i.image || '';
         const image = imageData ? `<img class="inventory-thumb" src="${escapeHTML(imageData)}" loading="lazy" decoding="async" alt="${escapeHTML(i.name)}照片">` : '';
         const status = inventoryStatus(i);
-        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${monthsText}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="progress"><span style="width:${Math.min(100, Number.isFinite(months) ? months / 6 * 100 : 100)}%"></span></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost inventory-more-btn" data-toggle-inventory-actions="${i.id}" title="更多操作" aria-label="展开更多操作"><i data-lucide="more-horizontal"></i></button><span class="inventory-secondary-actions">${imageData ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></span></div></div></div>`;
+        const referenceMonths = Math.max(1, Number(state.hosts[0]?.stockCap) || 6);
+        const meterWidth = Number.isFinite(months) ? Math.min(100, Math.max(0, months / referenceMonths * 100)) : 100;
+        const meterClass = status.cls ? ` ${status.cls}` : '';
+        const meterText = Number.isFinite(months) ? `约 ${months.toFixed(1)} 个月用量` : '暂无使用速度';
+        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="inventory-meter${meterClass}" aria-label="${meterText}，建议上限 ${referenceMonths} 个月"><div class="progress"><span style="width:${meterWidth}%"></span></div><div class="inventory-meter-caption"><span>${meterText}</span><span>建议上限 ${referenceMonths} 个月</span></div></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost inventory-more-btn" data-toggle-inventory-actions="${i.id}" title="更多操作" aria-label="展开更多操作"><i data-lucide="more-horizontal"></i></button><span class="inventory-secondary-actions">${imageData ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></span></div></div></div>`;
       }).join('')}</div></section>`;
       }).join('');
       iconRefresh();
@@ -1743,10 +1754,10 @@
     byId('settingsDrawerClose').addEventListener('click', () => byId('settingsDrawer').classList.remove('open'));
     byId('settingsDrawer').addEventListener('click', e => { if (e.target.id === 'settingsDrawer') byId('settingsDrawer').classList.remove('open'); });
     byId('inventorySearch').addEventListener('input', e => { inventorySearch = e.target.value.trim(); renderInventory(); });
-    byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; inventoryFilter = button.dataset.inventoryFilter; renderInventory(); });
+    byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; inventoryFilter = button.dataset.inventoryFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
     document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
     byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
-    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryCategory').value = inventoryDraftCategory; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = inventoryDraftCategory ? `添加${inventoryDraftCategory}库存` : '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').classList.remove('open')));
     document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); }));
     document.querySelectorAll('.modal, .drawer').forEach(layer => layer.addEventListener('click', e => {
