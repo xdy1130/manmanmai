@@ -129,7 +129,7 @@
     textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(53,108,135,.13); }
     .chat-preview { display: none; margin-top: 12px; }
     .chat-preview.visible { display: grid; gap: 10px; }
-    .bottom-nav { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); width: min(720px, 100%); display: grid; grid-template-columns: repeat(5, 1fr); background: rgba(247,247,244,.96); border-top: 1px solid var(--border); box-shadow: 0 -4px 18px rgba(32,34,31,.06); backdrop-filter: blur(16px); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+    .bottom-nav { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); width: min(720px, 100%); display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(247,247,244,.96); border-top: 1px solid var(--border); box-shadow: 0 -4px 18px rgba(32,34,31,.06); backdrop-filter: blur(16px); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
     .nav-btn { border: 0; min-height: 58px; background: transparent; color: var(--muted); display: grid; justify-items: center; align-content: center; gap: 3px; font-size: 13px; border-radius: 7px; }
     .nav-btn.active { color: var(--text); background: var(--surface); box-shadow: 0 2px 9px rgba(32,34,31,.08); }
     .modal { position: fixed; z-index: 50; inset: 0; display: none; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(20,21,19,.42); }
@@ -201,6 +201,31 @@
     .home-stat span { display: block; color: rgba(255,255,255,.68); font-size: 12px; }
     .home-stat strong { display: block; margin-top: 4px; font-size: 19px; }
     .quick-actions { display: grid; grid-template-columns: 1.15fr 1fr; gap: 10px; margin: 14px 0 4px; }
+    .home-hero { padding: 18px 18px 16px; border-radius: 22px; }
+    .home-hero .eyebrow { display:block; color:rgba(255,255,255,.68); letter-spacing:0; font-size:12px; }
+    .home-hero h2 { margin-top:5px; font-size:25px; letter-spacing:-.03em; }
+    .home-hero > p { color:rgba(255,255,255,.68); font-size:12px; }
+    .home-hero-top { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+    .home-avatar { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.16); color:#fff; font-size:13px; font-weight:800; }
+    .home-budget-label { display:block; margin-top:20px; color:rgba(255,255,255,.7); font-size:12px; }
+    .home-budget-amount { display:block; margin-top:3px; color:#fff; font-size:32px; letter-spacing:-.05em; }
+    .home-budget-progress { height:7px; margin:14px 0 8px; border-radius:99px; background:rgba(255,255,255,.2); overflow:hidden; }
+    .home-budget-progress span { display:block; width:0; height:100%; border-radius:inherit; background:#f5d49b; transition:width .3s ease; }
+    .home-budget-foot { display:flex; justify-content:space-between; gap:10px; color:rgba(255,255,255,.68); font-size:11px; }
+    .home-budget-foot strong { color:#fff; font-weight:700; }
+    .home-hero .home-stats { display:block; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.16); }
+    .home-hero .home-stat { padding:0; }
+    .home-hero .home-stat span { color:rgba(255,255,255,.68); }
+    .home-hero .home-stat strong { margin-top:3px; color:#fff; font-size:17px; }
+    .decision-progress { display:flex; align-items:center; gap:7px; margin:0 0 12px; color:var(--muted); font-size:12px; }
+    .decision-progress span { display:grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--surface-2); font-weight:700; }
+    .decision-progress span.active { background:var(--text); color:var(--bg); }
+    .decision-progress i { width:24px; height:1px; background:var(--border); }
+    .decision-form { gap:14px; }
+    .decision-step { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .decision-step[hidden] { display:none; }
+    .decision-step-title { grid-column:span 2; margin-bottom:-3px; font-size:14px; color:var(--muted); }
+    .decision-back { color:var(--muted); }
     .action-card { min-height: 104px; justify-content: flex-start; align-items: flex-start; flex-direction: column; text-align: left; padding: 16px; border-radius: 16px; }
     .action-card.primary { background: var(--text); border-color: var(--text); color: #fff; }
     .action-card i { width: 23px; height: 23px; }
@@ -343,14 +368,12 @@
 
     <section class="page active" id="page-decide">
       <div class="home-hero">
-        <span class="eyebrow">慢一点，再决定</span>
-        <h2>今天也把家里的东西用明白</h2>
-        <p class="muted">先看已有库存，再决定要不要为“限时”买单。</p>
-        <div class="home-stats">
-          <div class="home-stat"><span>本月已花</span><strong id="monthSpent">¥0</strong></div>
-          <div class="home-stat"><span>本月预算余量</span><strong id="monthLeft">¥0</strong></div>
-          <div class="home-stat"><span>本场直播余量</span><strong id="sessionLeft">¥0</strong></div>
-        </div>
+        <div class="home-hero-top"><div><span class="eyebrow">晚上好，今天也慢一点</span><h2>我的消费节奏</h2></div><div class="home-avatar">我</div></div>
+        <span class="home-budget-label">本月可用预算</span>
+        <strong class="home-budget-amount" id="monthLeft">¥0</strong>
+        <div class="home-budget-progress"><span id="budgetProgress"></span></div>
+        <div class="home-budget-foot"><span>已使用 <strong id="monthSpent">¥0</strong></span><span>预算 <strong id="monthlyBudgetLabel">¥0</strong></span></div>
+        <div class="home-stats"><div class="home-stat"><span>本场直播余量</span><strong id="sessionLeft">¥0</strong></div></div>
       </div>
       <div class="quick-actions">
         <button class="btn action-card primary" id="homeDecisionBtn" type="button"><i data-lucide="scan-search"></i><strong>我想买东西</strong><span>先查库存，再给建议</span></button>
@@ -366,15 +389,25 @@
           <div class="list" id="recentPurchases"></div>
         </div>
       </div>
-      <div class="section-head"><h2>急购判断</h2><span class="pill">约 30 秒</span></div>
-      <form class="card form-grid" id="decisionForm">
-        <label class="span-2">正在看的主播<select id="decisionHost" required></select></label>
-        <label class="span-2">商品名称<input id="decisionName" required maxlength="40" placeholder="例如：身体乳三件套"></label>
-        <label>商品分类<select id="decisionCategory" required></select></label>
-        <label>购买目的<select id="decisionPurpose"><option value="need">补货 / 确实需要</option><option value="like">喜欢 / 支持主播</option><option value="collect">收藏 / 限定款</option></select></label>
-        <label>整单价格（元）<input id="decisionPrice" required inputmode="decimal" type="number" min="0" step="0.01" placeholder="0.00"></label>
-        <label>一共几件<input id="decisionQty" required inputmode="numeric" type="number" min="1" step="1" value="1"></label>
-        <button class="btn btn-primary span-2" type="submit"><i data-lucide="sparkles"></i>给我一个购买建议</button>
+      <div class="section-head"><div><h2>现在要不要买</h2><p class="muted small">用 3 步看清库存、预算和购买理由</p></div><span class="pill">约 30 秒</span></div>
+      <div class="decision-progress" id="decisionProgress" aria-label="购买判断进度"><span class="active">1</span><i></i><span>2</span><i></i><span>3</span><em>先说商品，再看建议</em></div>
+      <form class="card form-grid decision-form" id="decisionForm">
+        <div class="decision-step span-2" data-decision-step="1">
+          <div class="decision-step-title">先告诉我你正在看的商品</div>
+          <label class="span-2">商品名称<input id="decisionName" required maxlength="40" placeholder="例如：身体乳三件套"></label>
+          <label class="span-2">正在看的主播<select id="decisionHost" required></select></label>
+        </div>
+        <div class="decision-step span-2" data-decision-step="2" hidden>
+          <div class="decision-step-title">再补充商品信息</div>
+          <label>商品分类<select id="decisionCategory" required></select></label>
+          <label>购买目的<select id="decisionPurpose"><option value="need">补货 / 确实需要</option><option value="like">喜欢 / 支持主播</option><option value="collect">收藏 / 限定款</option></select></label>
+        </div>
+        <div class="decision-step span-2" data-decision-step="3" hidden>
+          <div class="decision-step-title">最后输入价格，马上得到建议</div>
+          <label>整单价格（元）<input id="decisionPrice" required inputmode="decimal" type="number" min="0" step="0.01" placeholder="0.00"></label>
+          <label>一共几件<input id="decisionQty" required inputmode="numeric" type="number" min="1" step="1" value="1"></label>
+        </div>
+        <div class="btn-row span-2"><button class="btn decision-back" id="decisionBackBtn" type="button" hidden>上一步</button><button class="btn btn-primary" id="decisionNextBtn" type="button">下一步</button><button class="btn btn-primary" id="decisionSubmitBtn" type="submit" hidden><i data-lucide="sparkles"></i>给我购买建议</button></div>
       </form>
       <div class="result" id="decisionResult" aria-live="polite"></div>
     </section>
@@ -447,6 +480,7 @@
       </section>
       <div class="section-head"><h3>工具设置</h3></div>
       <div class="settings-menu">
+        <button class="settings-entry" type="button" data-go-page="expenses"><span class="settings-entry-icon"><i data-lucide="receipt-text"></i></span><span><strong>账单与趋势</strong><span>查看消费、退款和预算变化</span></span><i data-lucide="chevron-right"></i></button>
         <button class="settings-entry" type="button" data-settings-drawer="budget"><span class="settings-entry-icon"><i data-lucide="wallet-cards"></i></span><span><strong>预算与主播规则</strong><span>控制每月预算和每场直播额度</span></span><i data-lucide="chevron-right"></i></button>
         <button class="settings-entry" type="button" data-settings-drawer="data"><span class="settings-entry-icon"><i data-lucide="database-backup"></i></span><span><strong>数据备份</strong><span>导出或恢复本机备份文件</span></span><i data-lucide="chevron-right"></i></button>
         <button class="settings-entry" type="button" data-settings-drawer="sync"><span class="settings-entry-icon"><i data-lucide="cloud-cog"></i></span><span><strong>云端同步</strong><span>同一账号在多个设备自动同步</span></span><i data-lucide="chevron-right"></i></button>
@@ -458,7 +492,6 @@
     <button class="nav-btn active" data-page="decide"><i data-lucide="house"></i><span>首页</span></button>
     <button class="nav-btn" data-page="chat"><i data-lucide="circle-plus"></i><span>记一笔</span></button>
     <button class="nav-btn" data-page="inventory"><i data-lucide="package-open"></i><span>库存</span></button>
-    <button class="nav-btn" data-page="expenses"><i data-lucide="receipt-text"></i><span>账单</span></button>
     <button class="nav-btn" data-page="settings"><i data-lucide="user-round"></i><span>我的</span></button>
   </nav>
 
@@ -598,6 +631,7 @@
     let inventoryFilter = '全部';
     let inventorySearch = '';
     let chatView = 'today';
+    let decisionStep = 1;
 
     function loadState(storageKey = currentStoreKey) {
       try {
@@ -1123,6 +1157,8 @@
       const spent = monthSpent(); const host = currentHost();
       byId('monthSpent').textContent = money(spent);
       byId('monthLeft').textContent = money(Math.max(0, state.monthlyBudget - spent));
+      byId('monthlyBudgetLabel').textContent = money(state.monthlyBudget);
+      byId('budgetProgress').style.width = `${state.monthlyBudget > 0 ? Math.min(100, spent / state.monthlyBudget * 100) : 0}%`;
       byId('sessionLeft').textContent = money(Math.max(0, (host?.perLiveBudget || 0) - (host?.sessionSpent || 0)));
       const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = dateISO(yesterday);
@@ -1462,9 +1498,27 @@
       const nav = document.querySelector(`.nav-btn[data-page="${page}"]`);
       if (nav) nav.click();
     }
-    byId('homeDecisionBtn').addEventListener('click', () => { byId('decisionForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); byId('decisionName').focus(); });
+    function updateDecisionStep(step = 1) {
+      decisionStep = Math.min(3, Math.max(1, step));
+      document.querySelectorAll('[data-decision-step]').forEach(section => { section.hidden = Number(section.dataset.decisionStep) !== decisionStep; });
+      document.querySelectorAll('#decisionProgress span').forEach((item, index) => item.classList.toggle('active', index + 1 <= decisionStep));
+      byId('decisionBackBtn').hidden = decisionStep === 1;
+      byId('decisionNextBtn').hidden = decisionStep === 3;
+      byId('decisionSubmitBtn').hidden = decisionStep !== 3;
+      byId('decisionProgress').querySelector('em').textContent = ['先说商品，再看建议', '补充分类和购买目的', '输入价格，得到购买建议'][decisionStep - 1];
+      iconRefresh();
+    }
+    byId('decisionNextBtn').addEventListener('click', () => {
+      if (decisionStep === 1 && !byId('decisionName').value.trim()) { byId('decisionName').focus(); showToast('先输入商品名称'); return; }
+      updateDecisionStep(decisionStep + 1);
+      const target = decisionStep === 2 ? byId('decisionCategory') : byId('decisionPrice');
+      target.focus();
+    });
+    byId('decisionBackBtn').addEventListener('click', () => updateDecisionStep(decisionStep - 1));
+    byId('homeDecisionBtn').addEventListener('click', () => { updateDecisionStep(1); byId('decisionForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => byId('decisionName').focus(), 220); });
     byId('homeChatBtn').addEventListener('click', () => goToPage('chat'));
     byId('viewAllExpensesBtn').addEventListener('click', () => goToPage('expenses'));
+    document.querySelectorAll('[data-go-page]').forEach(button => button.addEventListener('click', () => goToPage(button.dataset.goPage)));
     byId('accountHeroAction').addEventListener('click', openAuthDrawer);
     function openSettingsDrawer(section) {
       const titles = { budget: ['预算与主播规则', '只在需要调整时打开'], data: ['数据备份', '导出或恢复你的本机数据'], sync: ['云端同步', '登录后自动同步到多个设备'] };
@@ -1570,7 +1624,7 @@
         const host = state.hosts.find(h => h.id === pendingDecision.hostId);
         host.sessionSpent += pendingDecision.price;
         state.expenses.push({ id: uid(), name: pendingDecision.name, amount: pendingDecision.price, kind: 'expense', category: pendingDecision.category, platform: '直播间', date: todayISO(), fromLive: true, hostId: host.id });
-        byId('decisionForm').reset(); byId('decisionQty').value = 1; byId('decisionResult').className = 'result'; pendingDecision = null; saveState(); showToast('已记入本场和本月消费');
+        byId('decisionForm').reset(); byId('decisionQty').value = 1; updateDecisionStep(1); byId('decisionResult').className = 'result'; pendingDecision = null; saveState(); showToast('已记入本场和本月消费');
       }
     });
 
@@ -1736,6 +1790,7 @@
 
     prepareGuestBootState();
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
+    updateDecisionStep(1);
     byId('expenseDate').value = todayISO();
     byId('historyDate').value = todayISO();
     renderAll();
