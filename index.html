@@ -407,6 +407,7 @@
     .inventory-manage-toggle.active { background:var(--surface-2); color:var(--text); }
     .inventory-sidebar-hint { margin:-2px 0 9px; color:var(--muted); font-size:11px; line-height:1.45; }
     .inventory-category-manage { display:grid; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+    .inventory-category-manage[hidden], .inventory-add-category-form[hidden] { display:none !important; }
     .inventory-add-category { width:100%; margin:0; border:1px dashed var(--border); color:var(--muted); }
     .inventory-add-category-form { display:grid; gap:6px; margin-top:8px; }
     .inventory-add-category-form input { width:100%; min-height:36px; }
@@ -653,7 +654,7 @@
           <div class="inventory-category-manage" id="inventoryCategoryManageActions" hidden>
             <button class="btn btn-ghost inventory-add-category" id="addInventoryCategoryBtn" type="button">＋ 新增自定义分类</button>
             <form class="inventory-add-category-form" id="inventoryCustomCategoryForm" hidden>
-              <input id="inventoryCustomCategoryName" type="text" maxlength="20" placeholder="输入分类名称" aria-label="自定义分类名称">
+              <input id="inventoryCustomCategoryName" type="text" maxlength="20" required placeholder="输入分类名称" aria-label="自定义分类名称">
               <div class="btn-row"><button class="btn btn-primary" type="submit">保存</button><button class="btn btn-ghost" id="cancelInventoryCategoryBtn" type="button">取消</button></div>
             </form>
           </div>
@@ -1758,7 +1759,7 @@
     }
     function addInventoryCustomCategory() {
       const name = byId('inventoryCustomCategoryName').value.trim();
-      if (!name) return;
+      if (!name) { byId('inventoryCustomCategoryName').focus(); showToast('请输入分类名称'); return; }
       if (name === '全部' || categories.includes(name) || (state.inventoryCategories || []).includes(name)) { showToast('这个分类已经存在'); return; }
       state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), name])];
       state.inventoryCategoryOrder = [...new Set([...(state.inventoryCategoryOrder || categories), name])];
@@ -1771,6 +1772,7 @@
       inventoryDraftCategory = name;
       saveState();
       renderInventory();
+      showToast(`已新增分类“${name}”`);
     }
     function deleteInventoryCustomCategory(category) {
       if (!category || category === '其他') return;
@@ -2079,7 +2081,7 @@
     byId('inventoryFilters').addEventListener('click', e => { const remove = e.target.closest('[data-delete-inventory-category]'); if (remove) { e.preventDefault(); e.stopPropagation(); return; } const move = e.target.closest('[data-move-category]'); if (move) { e.preventDefault(); e.stopPropagation(); moveInventoryCategoryByStep(move.getAttribute('data-move-category'), move.getAttribute('data-move-direction'), move.getAttribute('data-move-category-parent') || ''); return; } const button = e.target.closest('[data-inventory-filter]'); if (!button) return; const nextFilter = button.dataset.inventoryFilter; if (nextFilter === inventoryFilter && !button.dataset.inventorySubcategory) inventoryFilterSubcategory = ''; else inventoryFilterSubcategory = button.dataset.inventorySubcategory || ''; inventoryFilter = nextFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
     byId('addInventoryCategoryBtn').addEventListener('click', () => { byId('inventoryCustomCategoryForm').hidden = false; byId('addInventoryCategoryBtn').hidden = true; byId('inventoryCustomCategoryName').value = ''; byId('inventoryCustomCategoryName').focus(); });
     byId('inventoryCustomCategoryForm').addEventListener('submit', e => { e.preventDefault(); addInventoryCustomCategory(); });
-    byId('cancelInventoryCategoryBtn').addEventListener('click', () => { byId('inventoryCustomCategoryForm').hidden = true; byId('addInventoryCategoryBtn').hidden = false; });
+    byId('cancelInventoryCategoryBtn').addEventListener('click', () => { byId('inventoryCustomCategoryForm').hidden = true; byId('addInventoryCategoryBtn').hidden = false; byId('inventoryCustomCategoryName').value = ''; });
     document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
     byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryCategory').value = inventoryDraftCategory; syncInventoryApparelFields(); updateInventoryCategorySuggestion(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = inventoryDraftCategory ? `添加${inventoryDraftCategory}库存` : '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
