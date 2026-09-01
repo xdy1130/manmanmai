@@ -81,10 +81,16 @@
     .inventory-image-preview { display: none; width: 88px; height: 88px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
     .inventory-image-preview.visible { display: block; }
     .field-help { margin-top: -2px; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 1.4; }
+    .field-help[hidden] { display: none !important; }
     .quick-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -1px; }
+    .inventory-category-presets { display: grid; gap: 6px; margin-top: 8px; }
+    .inventory-category-preset { display: grid; gap: 5px; }
+    .inventory-category-preset > strong { color: var(--text); font-size: 12px; }
+    .inventory-category-preset > span { display: flex; flex-wrap: wrap; gap: 5px; }
     .quick-option { min-height: 32px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 13px; }
     .quick-option:active { background: var(--surface); color: var(--text); }
     label { display: grid; gap: 6px; font-size: 15px; font-weight: 500; }
+    .form-grid > label[hidden] { display: none !important; }
     input, select { width: 100%; min-height: 48px; border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface); color: var(--text); outline: none; }
     input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(53,108,135,.13); }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -389,8 +395,25 @@
     .inventory-group-head small { color:var(--muted); font-size:12px; font-weight:500; }
     .inventory-group-head > svg { flex:0 0 auto; width:19px; color:var(--muted); transition:transform .2s ease; }
     .inventory-group.is-collapsed .inventory-group-head > svg { transform:rotate(-90deg); }
+    .inventory-subcategory-head { grid-column:1 / -1; margin:8px 2px 0; padding:7px 10px; border-left:3px solid var(--accent); background:var(--surface-2); color:var(--text); font-size:13px; }
     .inventory-group-content { overflow:hidden; max-height:5000px; opacity:1; transition:max-height .25s ease, opacity .2s ease; }
     .inventory-group.is-collapsed .inventory-group-content { max-height:0; opacity:0; }
+    .inventory-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:18px; align-items:start; }
+    .inventory-sidebar { position:sticky; top:18px; padding:14px; border:1px solid var(--border); border-radius:14px; background:var(--surface); }
+    .inventory-sidebar-title { margin:0 0 10px; color:var(--text); font-size:14px; font-weight:700; }
+    .inventory-filters { display:grid; gap:5px; }
+    .inventory-filters .filter-chip { display:flex; align-items:center; width:100%; justify-content:flex-start; padding:9px 11px; border:0; border-radius:8px; background:transparent; text-align:left; }
+    .inventory-filters .filter-chip:hover { background:var(--surface-2); }
+    .inventory-filters .filter-chip.active { background:var(--text); color:var(--bg); }
+    .inventory-filter-group { display:grid; gap:3px; }
+    .inventory-filter-subitems { display:grid; gap:3px; margin-left:12px; padding-left:9px; border-left:1px solid var(--border); }
+    .inventory-filter-subitems[hidden] { display:none; }
+    .inventory-filters .filter-chip.subcategory { min-height:32px; padding:7px 9px; color:var(--muted); font-size:12px; font-weight:500; }
+    .inventory-filters .filter-chip.subcategory.active { background:var(--surface-2); color:var(--text); }
+    .inventory-filters .filter-chip[draggable="true"] { cursor:grab; }
+    .inventory-filters .filter-chip.dragging { opacity:.45; }
+    .inventory-filters .filter-chip.drop-target { outline:2px dashed var(--blue); outline-offset:2px; }
+    .inventory-main { min-width:0; }
     .inventory-secondary-actions { display:inline-flex; gap:5px; max-width:0; overflow:hidden; opacity:0; transform:translateX(5px); transition:max-width .2s ease, opacity .2s ease, transform .2s ease; }
     .inventory-card.actions-open .inventory-secondary-actions { max-width:100px; opacity:1; transform:none; }
     .inventory-card.actions-open .inventory-more-btn svg { transform:rotate(90deg); }
@@ -523,6 +546,11 @@
       .home-hero h2 { font-size:26px; }
       .home-budget-amount { font-size:38px; }
       .bottom-nav { width:calc(100% - 20px); bottom:8px; }
+      .inventory-layout { grid-template-columns:1fr; gap:12px; }
+      .inventory-sidebar { position:static; padding:10px; }
+      .inventory-sidebar-title { margin:0 0 8px; }
+      .inventory-filters { display:flex; gap:6px; overflow-x:auto; padding-bottom:2px; }
+      .inventory-filters .filter-chip { width:auto; flex:0 0 auto; justify-content:center; white-space:nowrap; }
     }
   </style>
 </head>
@@ -591,9 +619,16 @@
       <div class="overview-strip" id="inventoryOverview"></div>
       <div class="toolbar"><div class="search-field"><i data-lucide="search"></i><input id="inventorySearch" type="search" placeholder="搜索库存名称"></div><button class="btn btn-primary" data-open="inventoryModal"><i data-lucide="plus"></i>添加</button></div>
       <div class="inventory-storage"><div class="inventory-storage-copy"><strong>库存照片</strong><span id="inventoryStorageHint">正在统计照片占用空间…</span></div><button class="btn btn-ghost" id="clearInventoryImagesBtn" type="button"><i data-lucide="image-off"></i>清理照片</button></div>
-      <div class="filter-chips" id="inventoryFilters"></div>
-      <div class="section-head"><div><h3>全部库存</h3><p class="muted small" id="inventoryCount"></p></div><span class="pill" id="inventorySortLabel">按限用日期</span></div>
-      <div class="list" id="inventoryList"></div>
+      <div class="inventory-layout">
+        <aside class="inventory-sidebar" aria-label="库存分类导航">
+          <h3 class="inventory-sidebar-title">库存分类</h3>
+          <div class="filter-chips inventory-filters" id="inventoryFilters"></div>
+        </aside>
+        <div class="inventory-main">
+          <div class="section-head"><div><h3 id="inventoryCurrentTitle">全部库存</h3><p class="muted small" id="inventoryCount"></p></div><span class="pill" id="inventorySortLabel">按限用日期</span></div>
+          <div class="list" id="inventoryList"></div>
+        </div>
+      </div>
     </section>
 
     <section class="page" id="page-expenses">
@@ -674,7 +709,10 @@
       <div class="modal-head span-2"><h2 id="inventoryModalTitle">添加库存</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
       <input id="inventoryId" type="hidden">
       <label class="span-2">物品名称<input id="inventoryName" required maxlength="40" placeholder="例如：洗发水"></label>
-      <label>分类（可自定义）<input id="inventoryCategory" list="inventoryCategoryOptions" required placeholder="选择或输入新分类"><datalist id="inventoryCategoryOptions"></datalist><span class="field-help">没有合适选项？直接输入，保存后会自动记住</span><span class="quick-options" id="inventoryCategoryQuick" aria-label="已保存的分类"></span></label>
+      <label>分类（可自定义）<input id="inventoryCategory" list="inventoryCategoryOptions" required placeholder="选择或输入新分类"><datalist id="inventoryCategoryOptions"></datalist><span class="field-help">先选大类，再补充穿搭细分，之后会自动记住</span><span class="field-help" id="inventoryCategorySuggestion" hidden></span><span class="quick-options" id="inventoryCategoryQuick" aria-label="已保存的分类"></span></label>
+      <label id="inventorySubcategoryField" hidden>穿搭细分（可选）<input id="inventorySubcategory" list="inventorySubcategoryOptions" placeholder="例如：冬装、外套、首饰"><datalist id="inventorySubcategoryOptions"></datalist><span class="quick-options" id="inventorySubcategoryQuick" aria-label="穿搭细分"></span></label>
+      <label id="inventoryStyleField" hidden>风格标签（可选）<input id="inventoryStyle" list="inventoryStyleOptions" placeholder="例如：通勤、休闲、复古"><datalist id="inventoryStyleOptions"></datalist><span class="quick-options" id="inventoryStyleQuick" aria-label="风格标签"></span></label>
+      <label id="inventoryPairingField" hidden>搭配单品（可选）<input id="inventoryPairing" list="inventoryPairingOptions" placeholder="例如：黑色直筒裤、白色衬衫"><datalist id="inventoryPairingOptions"></datalist><span class="field-help">灵活记录适合搭配的其他单品：上衣填下装，下装填上衣，鞋包也可以填适配服装</span></label>
       <label>现有数量<input id="inventoryQty" type="number" min="0" step="0.1" required value="1"></label>
       <label>数量单位（可自定义）<input id="inventoryUnit" list="inventoryUnitOptions" required value="件" placeholder="如：片、克、瓶"><datalist id="inventoryUnitOptions"></datalist><span class="field-help">可选片、克、瓶等，也可以直接输入自己的单位</span><span class="quick-options" id="inventoryUnitQuick" aria-label="已保存的单位"></span></label>
       <label>每月大约用量<input id="inventoryUsage" type="number" min="0" step="0.1" required value="1"></label>
@@ -775,7 +813,18 @@
     const SUPABASE_PROJECT_URL = 'https://iwqyhzfohjmtscpzenun.supabase.co';
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aST__7_-Gcj6Wi5ZCP0Pxw_fMbWYxp0';
     const CHAT_WELCOME = '把消费或退款直接告诉我。例如：“昨天在抖音买了身体乳114元”。';
-    const categories = ['护肤美妆', '食品饮料', '清洁日用', '服饰鞋包', '家居用品', '数码电器', '收藏爱好', '其他'];
+    const categories = ['护肤', '护肤美妆', '食品饮料', '清洁日用', '服装穿搭', '服饰鞋包', '家居用品', '数码电器', '收藏爱好', '其他'];
+    const inventoryCategoryPresets = [
+      { name: '美妆个护', items: ['护肤', '护肤美妆', '彩妆', '香水', '护发', '身体护理'] },
+      { name: '食品饮料', items: ['食品饮料', '粮油调味', '零食', '饮料茶咖', '生鲜水果'] },
+      { name: '服饰鞋包', items: ['服装穿搭', '服饰鞋包', '上装', '下装', '鞋靴', '箱包配饰'] },
+      { name: '家居日用', items: ['清洁日用', '家居用品', '厨具餐具', '家纺收纳', '纸品清洁'] },
+      { name: '数码电器', items: ['数码电器', '手机配件', '电脑办公', '影音设备', '小家电'] },
+      { name: '兴趣收藏', items: ['收藏爱好', '运动户外', '图书文具', '玩具模型', '宠物用品'] }
+    ];
+    const apparelSubcategories = ['春装', '夏装', '秋装', '冬装', '长袖', '短袖', '外套', '毛衣', '卫衣', '衬衫', 'T恤', '裤子', '裙子', '连衣裙', '内衣', '家居服', '运动服', '鞋靴', '首饰', '包包', '帽子', '围巾', '眼镜', '腰带'];
+    const skincareSubcategories = ['面霜', '面膜'];
+    const apparelStyles = ['通勤', '休闲', '运动', '甜美', '复古', '极简', '户外', '正式', '街头', '度假'];
     const defaultInventoryUnits = ['件', '个', '瓶', '盒', '袋', '包', '支', '片', '克', '千克', '毫升', '升'];
     const dateISO = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const todayISO = () => dateISO();
@@ -787,6 +836,7 @@
       inventory: [],
       inventoryTombstones: {},
       inventoryCategories: [...categories],
+      inventoryCategoryParents: {},
       inventoryUnits: [...defaultInventoryUnits],
       expenses: [],
       chatHistory: [],
@@ -816,6 +866,7 @@
     let speechBaseText = '';
     let supabaseScriptPromise = null;
     let inventoryFilter = '全部';
+    let inventoryFilterSubcategory = '';
     let inventorySearch = '';
     let inventoryDraftCategory = '';
     let inventoryCollapsedCategories = new Set();
@@ -826,11 +877,19 @@
     function loadState(storageKey = currentStoreKey) {
       try {
         const saved = JSON.parse(localStorage.getItem(storageKey));
+        const migratedInventory = Array.isArray(saved?.inventory) ? saved.inventory.map(item => {
+          const name = String(item.name || '');
+          if (/面霜/.test(name)) return { ...item, category: '护肤', subcategory: '面霜' };
+          if (/面膜/.test(name)) return { ...item, category: '护肤', subcategory: '面膜' };
+          return item;
+        }) : [];
         return saved ? {
           ...defaultState,
           ...saved,
+          inventory: migratedInventory,
+          inventoryCategoryParents: saved.inventoryCategoryParents && typeof saved.inventoryCategoryParents === 'object' ? saved.inventoryCategoryParents : {},
           inventoryTombstones: saved.inventoryTombstones && typeof saved.inventoryTombstones === 'object' ? saved.inventoryTombstones : {},
-          inventoryCategories: Array.isArray(saved.inventoryCategories) && saved.inventoryCategories.length ? saved.inventoryCategories : [...new Set([...categories, ...(saved.inventory || []).map(item => item.category).filter(Boolean)])],
+          inventoryCategories: [...new Set([...categories, ...(Array.isArray(saved.inventoryCategories) ? saved.inventoryCategories : []), ...migratedInventory.map(item => item.category).filter(Boolean)])],
           inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
           chatHistory: Array.isArray(saved.chatHistory) ? saved.chatHistory : [],
           chatContext: { ...defaultState.chatContext, ...(saved.chatContext || {}) }
@@ -1191,16 +1250,60 @@
     }
     function inventoryDatalistOptions(values) { return [...new Set(values.filter(Boolean))].map(value => `<option value="${escapeHTML(value)}"></option>`).join(''); }
     function inventoryQuickOptions(values, field) { return [...new Set(values.filter(Boolean))].slice(0, 18).map(value => `<button type="button" class="quick-option" data-fill-inventory-field="${field}" data-fill-inventory-value="${escapeHTML(value)}">${escapeHTML(value)}</button>`).join(''); }
+    function isApparelInventoryCategory(category) { return ['服装穿搭', '服饰鞋包', '上装', '下装', '鞋靴', '箱包配饰'].includes(String(category || '').trim()); }
+    function isSkincareInventoryCategory(category) { return ['护肤', '护肤美妆'].includes(String(category || '').trim()); }
+    function updateInventoryCategorySuggestion() {
+      const name = byId('inventoryName').value.trim();
+      const suggestion = name ? inferCategory(name) : '其他';
+      const hint = byId('inventoryCategorySuggestion');
+      if (!name || suggestion === '其他') { hint.hidden = true; hint.textContent = ''; return; }
+      hint.textContent = `推荐分类：${suggestion}（可手动调整）`;
+      hint.hidden = false;
+      if (!byId('inventoryCategory').value.trim()) { byId('inventoryCategory').value = suggestion; syncInventoryApparelFields(); }
+    }
+    function suggestInventoryCategory(category) {
+      const text = String(category || '').toLowerCase();
+      if (/护肤|面霜|面膜|精华|防晒|乳液|洗面奶/.test(text)) return '护肤';
+      if (/彩妆|口红|香水|美容/.test(text)) return '美妆个护';
+      if (/食品|零食|水果|牛奶|饮料|茶|咖啡|粮油|调味/.test(text)) return '食品饮料';
+      if (/衣|裤|裙|鞋|包|服饰|外套|衬衫|内衣/.test(text)) return '服饰鞋包';
+      if (/家居|清洁|厨|餐|收纳|纸品|床品/.test(text)) return '家居日用';
+      if (/手机|电脑|耳机|数码|电器|充电|相机/.test(text)) return '数码电器';
+      if (/手办|盲盒|收藏|玩具|模型|运动|户外|宠物|图书/.test(text)) return '兴趣收藏';
+      return '其他';
+    }
+    function inventoryPresetOptions() {
+      return inventoryCategoryPresets.map(group => `<div class="inventory-category-preset"><strong>${group.name}</strong><span>${group.items.map(item => `<button type="button" class="quick-option" data-fill-inventory-field="inventoryCategory" data-fill-inventory-value="${escapeHTML(item)}">${escapeHTML(item)}</button>`).join('')}</span></div>`).join('');
+    }
+    function syncInventoryApparelFields() {
+      const isApparel = isApparelInventoryCategory(byId('inventoryCategory').value);
+      const isSkincare = isSkincareInventoryCategory(byId('inventoryCategory').value);
+      byId('inventorySubcategoryField').hidden = !isApparel && !isSkincare;
+      byId('inventorySubcategoryField').childNodes[0].textContent = isSkincare ? '护肤细分（可选）' : '穿搭细分（可选）';
+      byId('inventorySubcategory').placeholder = isSkincare ? '例如：面霜、面膜' : '例如：冬装、外套、首饰';
+      byId('inventorySubcategoryQuick').setAttribute('aria-label', isSkincare ? '护肤细分' : '穿搭细分');
+      byId('inventoryStyleField').hidden = !isApparel;
+      byId('inventoryPairingField').hidden = !isApparel;
+    }
     function renderInventoryInputs() {
       const savedCategories = availableCategories();
       const savedUnits = state.inventoryUnits || defaultInventoryUnits;
       byId('inventoryCategoryOptions').innerHTML = inventoryDatalistOptions(savedCategories);
       byId('inventoryUnitOptions').innerHTML = inventoryDatalistOptions(savedUnits);
-      byId('inventoryCategoryQuick').innerHTML = inventoryQuickOptions(savedCategories, 'inventoryCategory');
+      const customCategories = savedCategories.filter(category => !categories.includes(category));
+      const customSuggestions = customCategories.length ? `<div class="inventory-category-presets"><span class="field-help">现有自定义分类归类建议</span>${customCategories.map(category => `<div class="field-help">${escapeHTML(category)} → ${escapeHTML(suggestInventoryCategory(category))}</div>`).join('')}</div>` : '';
+      byId('inventoryCategoryQuick').innerHTML = `${inventoryQuickOptions(savedCategories, 'inventoryCategory')}<div class="inventory-category-presets"><span class="field-help">预设多级分类</span>${inventoryPresetOptions()}</div>${customSuggestions}`;
       byId('inventoryUnitQuick').innerHTML = inventoryQuickOptions(savedUnits, 'inventoryUnit');
+      byId('inventorySubcategoryOptions').innerHTML = inventoryDatalistOptions([...skincareSubcategories, ...apparelSubcategories]);
+      byId('inventorySubcategoryQuick').innerHTML = `${inventoryQuickOptions(skincareSubcategories, 'inventorySubcategory')} ${inventoryQuickOptions(apparelSubcategories, 'inventorySubcategory')}`;
+      byId('inventoryStyleOptions').innerHTML = inventoryDatalistOptions(apparelStyles);
+      byId('inventoryStyleQuick').innerHTML = inventoryQuickOptions(apparelStyles, 'inventoryStyle');
+      byId('inventoryPairingOptions').innerHTML = inventoryDatalistOptions((state.inventory || []).map(item => item.name));
+      syncInventoryApparelFields();
     }
     function inferCategory(text) {
-      if (/精华|面霜|口红|护肤|面膜|防晒|乳液|洗面奶/.test(text)) return '护肤美妆';
+      if (/精华|面霜|护肤|面膜|防晒|乳液|洗面奶/.test(text)) return '护肤';
+      if (/口红|彩妆|香水/.test(text)) return '护肤美妆';
       if (/衣|裤|裙|鞋|包|外套|衬衫|内衣/.test(text)) return '服饰鞋包';
       if (/吃|喝|茶|咖啡|水果|零食|牛奶|粮油|食品/.test(text)) return '食品饮料';
       if (/洗衣|清洁|抽纸|洗发|沐浴|牙膏|日用/.test(text)) return '清洁日用';
@@ -1502,9 +1605,49 @@
       if (months > 12) return { text: '库存偏多', cls: 'warn' };
       return { text: '库存充足', cls: '' };
     }
+    function sortInventoryCategories(categoryList) {
+      return [...new Set(categoryList)].sort((a, b) => {
+        const indexA = categories.indexOf(a); const indexB = categories.indexOf(b);
+        if (indexA >= 0 && indexB >= 0) return indexA - indexB;
+        if (indexA >= 0) return -1;
+        if (indexB >= 0) return 1;
+        return String(a).localeCompare(String(b), 'zh-CN');
+      });
+    }
     function renderInventoryFilters(categoriesToShow) {
-      const buttons = ['全部', ...categoriesToShow];
-      byId('inventoryFilters').innerHTML = buttons.map(category => `<button class="filter-chip ${inventoryFilter === category ? 'active' : ''}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}</button>`).join('');
+      const categoryParents = state.inventoryCategoryParents || {};
+      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !categoryParents[category]);
+      const groups = ordered.map(category => {
+        const mappedChildren = Object.entries(categoryParents).filter(([, parent]) => parent === category).map(([child]) => child);
+        const itemChildren = state.inventory.filter(item => (item.category || '其他') === category && item.subcategory).map(item => item.subcategory);
+        const subcategories = [...new Set([...mappedChildren, ...itemChildren])].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
+        const expanded = inventoryFilter === category;
+        const subitems = subcategories.length ? `<div class="inventory-filter-subitems"${expanded ? '' : ' hidden'}>${subcategories.map(subcategory => `<button class="filter-chip subcategory" draggable="true" data-category-drag="${escapeHTML(subcategory)}" data-category-parent="${escapeHTML(category)}" data-inventory-filter="${escapeHTML(category)}" data-inventory-subcategory="${escapeHTML(subcategory)}">${escapeHTML(subcategory)}</button>`).join('')}</div>` : '';
+        return `<div class="inventory-filter-group"><button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="true" data-category-drag="${escapeHTML(category)}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${subitems}</div>`;
+      }).join('');
+      byId('inventoryFilters').innerHTML = `<button class="filter-chip ${inventoryFilter === '全部' ? 'active' : ''}" type="button" data-inventory-filter="全部">全部库存</button>${groups}`;
+      byId('inventoryFilters').querySelectorAll('[data-category-drag]').forEach(button => {
+        button.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', button.dataset.categoryDrag); button.classList.add('dragging'); });
+        button.addEventListener('dragend', () => button.classList.remove('dragging'));
+        if (button.dataset.categoryParent) return;
+        button.addEventListener('dragover', e => { e.preventDefault(); button.classList.add('drop-target'); });
+        button.addEventListener('dragleave', () => button.classList.remove('drop-target'));
+        button.addEventListener('drop', e => { e.preventDefault(); button.classList.remove('drop-target'); moveInventoryCategoryToParent(e.dataTransfer.getData('text/plain'), button.dataset.categoryDrag); });
+      });
+    }
+    function moveInventoryCategoryToParent(source, parent) {
+      if (!source || !parent || source === parent) return;
+      const parents = { ...(state.inventoryCategoryParents || {}) };
+      parents[source] = parent;
+      state.inventory.forEach(item => {
+        if ((item.category || '其他') === source) { item.category = parent; item.subcategory = item.subcategory || source; }
+        else if ((item.subcategory || '') === source) item.category = parent;
+      });
+      state.inventoryCategoryParents = parents;
+      inventoryFilter = parent;
+      inventoryFilterSubcategory = source;
+      saveState();
+      renderInventory();
     }
     function renderInventory() {
       renderInventoryStorage();
@@ -1512,27 +1655,34 @@
       const expiring = state.inventory.filter(i => i.expiry && localDate(i.expiry) <= new Date(new Date().setDate(new Date().getDate() + 30))).length;
       const low = state.inventory.filter(i => Number(i.monthlyUsage) > 0 && Number(i.qty) / Number(i.monthlyUsage) < 1.5).length;
       byId('inventoryOverview').innerHTML = `<div class="overview-tile"><span>物品种类</span><strong>${state.inventory.length}</strong></div><div class="overview-tile"><span>总数量</span><strong>${total.toLocaleString('zh-CN')}</strong></div><div class="overview-tile"><span>30天内到期</span><strong>${expiring}</strong></div><div class="overview-tile"><span>快用完</span><strong>${low}</strong></div>`;
-      const categoriesToShow = [...new Set(state.inventory.map(item => item.category || '其他'))];
+      const categoriesToShow = sortInventoryCategories(state.inventory.map(item => item.category || '其他'));
       renderInventoryFilters(categoriesToShow);
       byId('inventoryCount').textContent = `${state.inventory.length} 种物品，共 ${total.toLocaleString('zh-CN')} 件`;
-      const filtered = state.inventory.filter(item => (inventoryFilter === '全部' || (item.category || '其他') === inventoryFilter) && (!inventorySearch || String(item.name || '').toLowerCase().includes(inventorySearch.toLowerCase())));
+      byId('inventoryCurrentTitle').textContent = inventoryFilter === '全部' ? '全部库存' : `${inventoryFilter}${inventoryFilterSubcategory ? ` · ${inventoryFilterSubcategory}` : ''}`;
+      const filtered = state.inventory.filter(item => (inventoryFilter === '全部' || ((item.category || '其他') === inventoryFilter && (!inventoryFilterSubcategory || (item.subcategory || '未分类') === inventoryFilterSubcategory))) && (!inventorySearch || String(item.name || '').toLowerCase().includes(inventorySearch.toLowerCase())));
       if (!filtered.length) { byId('inventoryList').innerHTML = '<div class="empty">还没有匹配的库存，试试换个分类或直接添加。</div>'; return; }
       const groups = new Map();
       [...filtered].sort((a, b) => {
         const expiryA = a.expiry || '9999-12-31'; const expiryB = b.expiry || '9999-12-31';
-        return expiryA.localeCompare(expiryB) || String(a.name).localeCompare(String(b.name), 'zh-CN');
+        return String(a.subcategory || '未分类').localeCompare(String(b.subcategory || '未分类'), 'zh-CN') || expiryA.localeCompare(expiryB) || String(a.name).localeCompare(String(b.name), 'zh-CN');
       }).forEach(item => { const category = item.category || '其他'; if (!groups.has(category)) groups.set(category, []); groups.get(category).push(item); });
+      const orderedGroups = [...groups.entries()].sort(([categoryA], [categoryB]) => sortInventoryCategories([categoryA, categoryB]).indexOf(categoryA) - sortInventoryCategories([categoryA, categoryB]).indexOf(categoryB));
       if (!inventoryCategoryViewReady) {
-        [...groups.keys()].slice(1).forEach(category => inventoryCollapsedCategories.add(category));
+        orderedGroups.slice(1).forEach(([category]) => inventoryCollapsedCategories.add(category));
         inventoryCategoryViewReady = true;
       }
-      byId('inventoryList').innerHTML = [...groups.entries()].map(([category, items]) => {
+      byId('inventoryList').innerHTML = orderedGroups.map(([category, items]) => {
         const collapsed = inventoryCollapsedCategories.has(category);
-        return `<section class="inventory-group ${collapsed ? 'is-collapsed' : ''}" data-inventory-group="${escapeHTML(category)}"><button class="inventory-group-head" type="button" data-toggle-inventory-group="${escapeHTML(category)}" aria-expanded="${String(!collapsed)}"><span><strong>${escapeHTML(category)}</strong><small>${items.length} 种物品 · ${collapsed ? '点击展开' : '点击收起'}</small></span><i data-lucide="chevron-down"></i></button><div class="list inventory-group-content">${items.map(i => {
+        return `<section class="inventory-group ${collapsed ? 'is-collapsed' : ''}" data-inventory-group="${escapeHTML(category)}"><button class="inventory-group-head" type="button" data-toggle-inventory-group="${escapeHTML(category)}" aria-expanded="${String(!collapsed)}"><span><strong>${escapeHTML(category)}</strong><small>${items.length} 种物品 · ${collapsed ? '点击展开' : '点击收起'}</small></span><i data-lucide="chevron-down"></i></button><div class="list inventory-group-content">${items.map((i, index) => {
+        const subcategory = i.subcategory || '未分类';
+        const previousSubcategory = index > 0 ? (items[index - 1].subcategory || '未分类') : '';
+        const subcategoryHeading = subcategory !== previousSubcategory ? `<div class="inventory-subcategory-head">${escapeHTML(subcategory)}</div>` : '';
         const months = Number(i.monthlyUsage) > 0 ? Number(i.qty) / Number(i.monthlyUsage) : Infinity;
         const unit = i.unit || '件';
         const monthsText = Number.isFinite(months) ? `${months.toFixed(1)} 个月用量` : '暂无使用速度';
         const expiry = i.expiry ? ` · ${i.expiry} 到期` : ' · 未设置限用日期';
+      const apparelMeta = [i.subcategory, i.style].filter(Boolean).map(escapeHTML).join(' · ');
+      const pairingMeta = i.outfitPairing ? `搭配：${escapeHTML(i.outfitPairing)}` : '';
         const imageData = inventoryImageCache.get(i.id) || i.image || '';
         const image = imageData ? `<img class="inventory-thumb" src="${escapeHTML(imageData)}" loading="lazy" decoding="async" alt="${escapeHTML(i.name)}照片">` : '';
         const status = inventoryStatus(i);
@@ -1540,7 +1690,7 @@
         const meterWidth = Number.isFinite(months) ? Math.min(100, Math.max(0, months / referenceMonths * 100)) : 100;
         const meterClass = status.cls ? ` ${status.cls}` : '';
         const meterText = Number.isFinite(months) ? `约 ${months.toFixed(1)} 个月用量` : '暂无使用速度';
-        return `<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="inventory-meter${meterClass}" aria-label="${meterText}，建议上限 ${referenceMonths} 个月"><div class="progress"><span style="width:${meterWidth}%"></span></div><div class="inventory-meter-caption"><span>${meterText}</span><span>建议上限 ${referenceMonths} 个月</span></div></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost inventory-more-btn" data-toggle-inventory-actions="${i.id}" title="更多操作" aria-label="展开更多操作"><i data-lucide="more-horizontal"></i></button><span class="inventory-secondary-actions">${imageData ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></span></div></div></div>`;
+      return `${subcategoryHeading}<div class="list-item inventory-card"><div class="inventory-card-main"><div class="inventory-item-with-image">${image}</div><div class="item-main"><div class="item-title">${escapeHTML(i.name)}</div><div class="item-meta">${apparelMeta ? `${apparelMeta} · ` : ''}${pairingMeta ? `${pairingMeta} · ` : ''}${expiry} · 单位：${escapeHTML(unit)}</div><span class="status-pill ${status.cls}">${status.text}</span><div class="inventory-meter${meterClass}" aria-label="${meterText}，建议上限 ${referenceMonths} 个月"><div class="progress"><span style="width:${meterWidth}%"></span></div><div class="inventory-meter-caption"><span>${meterText}</span><span>建议上限 ${referenceMonths} 个月</span></div></div></div></div><div class="inventory-card-footer"><div class="inventory-quantity"><span>现有数量</span><strong>${i.qty} ${escapeHTML(unit)}</strong></div><div class="item-actions"><button class="btn btn-icon btn-ghost" data-edit-inventory="${i.id}" title="编辑" aria-label="编辑库存"><i data-lucide="pencil"></i></button><button class="btn btn-icon btn-ghost inventory-more-btn" data-toggle-inventory-actions="${i.id}" title="更多操作" aria-label="展开更多操作"><i data-lucide="more-horizontal"></i></button><span class="inventory-secondary-actions">${imageData ? `<button class="btn btn-icon btn-ghost btn-danger" data-remove-inventory-image="${i.id}" title="移除照片" aria-label="移除库存照片"><i data-lucide="image-off"></i></button>` : ''}<button class="btn btn-icon btn-ghost btn-danger" data-delete-inventory="${i.id}" title="删除" aria-label="删除库存"><i data-lucide="trash-2"></i></button></span></div></div></div>`;
       }).join('')}</div></section>`;
       }).join('');
       iconRefresh();
@@ -1754,10 +1904,13 @@
     byId('settingsDrawerClose').addEventListener('click', () => byId('settingsDrawer').classList.remove('open'));
     byId('settingsDrawer').addEventListener('click', e => { if (e.target.id === 'settingsDrawer') byId('settingsDrawer').classList.remove('open'); });
     byId('inventorySearch').addEventListener('input', e => { inventorySearch = e.target.value.trim(); renderInventory(); });
-    byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; inventoryFilter = button.dataset.inventoryFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
+    byId('inventoryName').addEventListener('input', updateInventoryCategorySuggestion);
+    byId('inventoryCategory').addEventListener('input', syncInventoryApparelFields);
+    byId('inventoryCategory').addEventListener('change', syncInventoryApparelFields);
+    byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; const nextFilter = button.dataset.inventoryFilter; if (nextFilter === inventoryFilter && !button.dataset.inventorySubcategory) inventoryFilterSubcategory = ''; else inventoryFilterSubcategory = button.dataset.inventorySubcategory || ''; inventoryFilter = nextFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
     document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
     byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
-    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryCategory').value = inventoryDraftCategory; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = inventoryDraftCategory ? `添加${inventoryDraftCategory}库存` : '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
+    document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryCategory').value = inventoryDraftCategory; syncInventoryApparelFields(); updateInventoryCategorySuggestion(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = inventoryDraftCategory ? `添加${inventoryDraftCategory}库存` : '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
     document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal').classList.remove('open')));
     document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); }));
     document.querySelectorAll('.modal, .drawer').forEach(layer => layer.addEventListener('click', e => {
@@ -1767,6 +1920,7 @@
       const quick = e.target.closest('[data-fill-inventory-field]');
       if (!quick) return;
       byId(quick.dataset.fillInventoryField).value = quick.dataset.fillInventoryValue || '';
+      if (quick.dataset.fillInventoryField === 'inventoryCategory') syncInventoryApparelFields();
     });
 
     byId('chatForm').addEventListener('submit', e => {
@@ -1855,9 +2009,9 @@
     byId('inventoryForm').addEventListener('submit', async e => {
       e.preventDefault(); const id = byId('inventoryId').value || uid(); const existing = state.inventory.find(i => i.id === id);
       const previousState = structuredClone(state);
-      const category = byId('inventoryCategory').value.trim() || '其他'; const unit = byId('inventoryUnit').value.trim() || '件';
+      const category = byId('inventoryCategory').value.trim() || '其他'; const unit = byId('inventoryUnit').value.trim() || '件'; const isApparel = isApparelInventoryCategory(category); const isSkincare = isSkincareInventoryCategory(category);
       const selectedImage = inventoryImageRemoved ? '' : (inventoryImageData || inventoryImageCache.get(id) || existing?.image || '');
-      const item = { id, name: byId('inventoryName').value.trim(), category, qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: '', sourceExpenseId: inventorySourceExpenseId || existing?.sourceExpenseId || '', updatedAt: Date.now() };
+        const item = { id, name: byId('inventoryName').value.trim(), category, subcategory: isApparel || isSkincare ? byId('inventorySubcategory').value.trim() : '', style: isApparel ? byId('inventoryStyle').value.trim() : '', outfitPairing: isApparel ? byId('inventoryPairing').value.trim() : '', qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: '', sourceExpenseId: inventorySourceExpenseId || existing?.sourceExpenseId || '', updatedAt: Date.now() };
       state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), category])];
       state.inventoryUnits = [...new Set([...(state.inventoryUnits || defaultInventoryUnits), unit])];
       if (existing) Object.assign(existing, item); else state.inventory.push(item);
@@ -1914,7 +2068,7 @@
         more.setAttribute('aria-expanded', String(open));
         return;
       }
-      if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageRemoved = false; inventoryImageData = inventoryImageCache.get(i.id) || i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; byId('inventoryCategory').value = i.category; byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
+      if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageRemoved = false; inventoryImageData = inventoryImageCache.get(i.id) || i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; byId('inventoryCategory').value = i.category; byId('inventorySubcategory').value = i.subcategory || ''; byId('inventoryStyle').value = i.style || ''; byId('inventoryPairing').value = i.outfitPairing || ''; syncInventoryApparelFields(); byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
       if (removeImage && confirm('只移除这件库存的照片？库存记录会保留。')) { const item = state.inventory.find(x => x.id === removeImage.dataset.removeInventoryImage); if (item) { item.image = ''; deleteInventoryImage(item.id).then(() => { saveState(); showToast('库存照片已移除'); }).catch(() => showToast('照片移除失败，请稍后重试')); } }
       if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; deleteInventoryImage(deletedId).then(() => { saveState(); renderInventory(); renderAttention(); showToast('库存记录已删除'); }).catch(() => { saveState(); renderInventory(); renderAttention(); }); }
     });
@@ -1930,7 +2084,7 @@
       if (!expense || Number(expense.amount) <= 0) return;
       if (state.inventory.some(item => item.sourceExpenseId === expense.id)) { showToast('这笔消费已经加入库存'); return; }
       inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = expense.id; setInventoryImagePreview('');
-      byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryName').value = expense.name || ''; byId('inventoryCategory').value = expense.category || '其他'; byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryExpiry').value = ''; byId('inventoryModalTitle').textContent = '从账单加入库存'; byId('inventoryModal').classList.add('open');
+      byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryName').value = expense.name || ''; byId('inventoryCategory').value = expense.category || '其他'; byId('inventorySubcategory').value = ''; byId('inventoryStyle').value = ''; byId('inventoryPairing').value = ''; syncInventoryApparelFields(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryExpiry').value = ''; byId('inventoryModalTitle').textContent = '从账单加入库存'; byId('inventoryModal').classList.add('open');
     }
     document.querySelectorAll('#expenseList, #historyExpenseList, #recentPurchases').forEach(list => list.addEventListener('click', e => {
       const add = e.target.closest('[data-add-to-inventory]');
