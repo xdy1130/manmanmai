@@ -648,7 +648,7 @@
             <h3 class="inventory-sidebar-title">库存分类</h3>
             <button class="inventory-manage-toggle" id="inventoryCategoryManageBtn" type="button" aria-pressed="false">管理</button>
           </div>
-          <p class="inventory-sidebar-hint" id="inventoryCategoryManageHint" hidden>拖动分类调整层级，使用 ↑↓ 调整同级顺序。</p>
+          <p class="inventory-sidebar-hint" id="inventoryCategoryManageHint" hidden>拖动分类名称到另一个分类上可归入二级；拖动 ⋮⋮ 手柄调整同级顺序。</p>
           <div class="filter-chips inventory-filters" id="inventoryFilters"></div>
           <div class="inventory-category-manage" id="inventoryCategoryManageActions" hidden>
             <button class="btn btn-ghost inventory-add-category" id="addInventoryCategoryBtn" type="button">＋ 新增自定义分类</button>
@@ -840,6 +840,7 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script>
+    // Keep this namespace stable across HTML releases; the service-worker cache version is independent.
     const STORE_KEY = 'slow-buy-v1';
     const ACCOUNT_SCOPE_MARKER = 'slow-buy-account-scope-v1';
     const LEGACY_STATE_KEY = 'slow-buy-legacy-before-account-v1';
@@ -961,15 +962,17 @@
       const hasAccountCache = Boolean(localStorage.getItem(nextKey));
       const migrationOwner = localStorage.getItem(ACCOUNT_SCOPE_MARKER);
       const legacyState = localStorage.getItem(LEGACY_STATE_KEY);
-      if (!hasAccountCache && !migrationOwner && legacyState) {
-        localStorage.setItem(nextKey, legacyState);
-        localStorage.removeItem(LEGACY_STATE_KEY);
-        localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
-        localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
-      } else if (!hasAccountCache && !migrationOwner && currentStoreKey === STORE_KEY && hasPersonalData(state)) {
-        localStorage.setItem(nextKey, JSON.stringify(state));
-        localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
-        localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
+      if (!hasAccountCache && !migrationOwner) {
+        let migrationSnapshot = currentStoreKey === STORE_KEY && hasPersonalData(state) ? state : null;
+        if (!migrationSnapshot && legacyState) {
+          try { migrationSnapshot = JSON.parse(legacyState); } catch { migrationSnapshot = null; }
+        }
+        if (migrationSnapshot && hasPersonalData(migrationSnapshot)) {
+          localStorage.setItem(nextKey, JSON.stringify(migrationSnapshot));
+          if (legacyState) localStorage.removeItem(LEGACY_STATE_KEY);
+          localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
+          localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
+        }
       }
       currentStoreKey = nextKey;
       state = loadState(nextKey);
@@ -980,23 +983,27 @@
     function activateGuestState() {
       if (currentStoreKey === STORE_KEY && !localStorage.getItem(ACCOUNT_SCOPE_MARKER) && hasPersonalData(state)) localStorage.setItem(LEGACY_STATE_KEY, JSON.stringify(state));
       currentStoreKey = STORE_KEY;
-      state = structuredClone(defaultState);
+      state = loadState(STORE_KEY);
       inventoryImageLoadKey = '';
       inventoryImageCache = new Map();
-      persistState();
       authUser = null;
       pendingDecision = null;
       pendingChatEntries = [];
     }
     function prepareGuestBootState() {
-      const bootState = state;
-      if (currentStoreKey === STORE_KEY && hasPersonalData(bootState) && !localStorage.getItem(LEGACY_STATE_KEY) && !localStorage.getItem(ACCOUNT_SCOPE_MARKER)) {
-        localStorage.setItem(LEGACY_STATE_KEY, JSON.stringify(bootState));
-      }
-      // Never render the shared legacy cache before the account identity is confirmed.
       currentStoreKey = STORE_KEY;
-      state = structuredClone(defaultState);
-      persistState();
+      if (localStorage.getItem(ACCOUNT_SCOPE_MARKER)) {
+        state = structuredClone(defaultState);
+        return;
+      }
+      const legacyState = localStorage.getItem(LEGACY_STATE_KEY);
+      if (!hasPersonalData(state) && legacyState) {
+        try {
+          state = { ...defaultState, ...JSON.parse(legacyState) };
+          persistState();
+          localStorage.removeItem(LEGACY_STATE_KEY);
+        } catch { /* Keep the current default state when an old backup is malformed. */ }
+      }
     }
     function saveState() {
       if (!persistState()) return false;
@@ -1132,6 +1139,7 @@
     function mergeState(localState, remoteState) {
       const inventoryTombstones = mergeInventoryTombstones(localState.inventoryTombstones, remoteState.inventoryTombstones);
       const inventoryDeletedCategories = [...new Set([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])])];
+      const inventoryCategoryParents = { ...(localState.inventoryCategoryParents || {}), ...(remoteState.inventoryCategoryParents || {}) };
       return {
         ...defaultState,
         ...localState,
@@ -1141,6 +1149,7 @@
         inventoryTombstones,
         expenses: mergeById(localState.expenses, remoteState.expenses),
         inventoryDeletedCategories,
+        inventoryCategoryParents,
         inventoryCategoryOrder: [...new Set([...(localState.inventoryCategoryOrder || categories), ...(remoteState.inventoryCategoryOrder || categories)])].filter(category => !inventoryDeletedCategories.includes(category)),
         inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories)])].filter(category => !inventoryDeletedCategories.includes(category)),
         inventoryUnits: [...new Set([...(localState.inventoryUnits || defaultInventoryUnits), ...(remoteState.inventoryUnits || defaultInventoryUnits)])],
@@ -1154,7 +1163,12 @@
         (snapshot.expenses || []).length ||
         (snapshot.chatHistory || []).length ||
         Number(snapshot.monthlyBudget) !== Number(defaultState.monthlyBudget) ||
-        (snapshot.hosts || []).some(host => host.id !== 'host-default')
+        (snapshot.hosts || []).some(host => host.id !== 'host-default') ||
+        (snapshot.inventoryCategories || []).some(category => !categories.includes(category)) ||
+        (snapshot.inventoryDeletedCategories || []).length ||
+        Object.keys(snapshot.inventoryCategoryParents || {}).length ||
+        JSON.stringify(snapshot.inventoryCategoryOrder || []) !== JSON.stringify(defaultState.inventoryCategoryOrder) ||
+        (snapshot.inventoryUnits || []).some(unit => !defaultInventoryUnits.includes(unit))
       );
     }
     async function fetchCloudState() {
@@ -1681,11 +1695,11 @@
         const standardChildren = standardCategorySubcategories[category] || [];
         const subcategories = sortInventoryCategories([...new Set([...standardChildren, ...mappedChildren, ...itemChildren])]);
         const expanded = inventoryFilter === category;
-        const dragHandle = isManaging ? '<span class="inventory-drag-handle" aria-hidden="true">⋮⋮</span>' : '';
-        const subitems = subcategories.length ? `<div class="inventory-filter-subitems"${expanded ? '' : ' hidden'}>${subcategories.map(subcategory => { const subOrderButtons = isManaging ? `<span class="inventory-category-order"><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="up" title="上移" aria-label="上移二级分类">↑</button><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="down" title="下移" aria-label="下移二级分类">↓</button></span>` : ''; return `<div class="inventory-filter-subitem-row">${dragHandle}<button class="filter-chip subcategory" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(subcategory)}" data-category-parent="${escapeHTML(category)}" data-inventory-filter="${escapeHTML(category)}" data-inventory-subcategory="${escapeHTML(subcategory)}">${escapeHTML(subcategory)}</button>${subOrderButtons}</div>`; }).join('')}</div>` : '';
+        const dragHandle = (name, parent) => isManaging ? `<span class="inventory-drag-handle" draggable="true" data-category-drag="${escapeHTML(name)}" data-category-parent="${escapeHTML(parent)}" data-category-drag-mode="order" title="拖动调整顺序" aria-label="拖动调整顺序">⋮⋮</span>` : '';
+        const subitems = subcategories.length ? `<div class="inventory-filter-subitems"${expanded ? '' : ' hidden'}>${subcategories.map(subcategory => { const subOrderButtons = isManaging ? `<span class="inventory-category-order"><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="up" title="上移" aria-label="上移二级分类">↑</button><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="down" title="下移" aria-label="下移二级分类">↓</button></span>` : ''; return `<div class="inventory-filter-subitem-row">${dragHandle(subcategory, category)}<button class="filter-chip subcategory" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(subcategory)}" data-category-parent="${escapeHTML(category)}" data-category-drag-mode="nest" data-inventory-filter="${escapeHTML(category)}" data-inventory-subcategory="${escapeHTML(subcategory)}">${escapeHTML(subcategory)}</button>${subOrderButtons}</div>`; }).join('')}</div>` : '';
         const deleteButton = isManaging && category !== '其他' ? `<button class="btn btn-icon btn-ghost inventory-delete-category" type="button" draggable="false" data-delete-inventory-category="${escapeHTML(category)}" title="删除分类" aria-label="删除分类">×</button>` : '';
         const orderButtons = isManaging ? `<span class="inventory-category-order"><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(category)}" data-move-category-parent="" data-move-direction="up" title="上移" aria-label="上移分类">↑</button><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(category)}" data-move-category-parent="" data-move-direction="down" title="下移" aria-label="下移分类">↓</button></span>` : '';
-        return `<div class="inventory-filter-group"><div class="inventory-filter-top">${dragHandle}<button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(category)}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${orderButtons}${deleteButton}</div>${subitems}</div>`;
+        return `<div class="inventory-filter-group"><div class="inventory-filter-top">${dragHandle(category, '')}<button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(category)}" data-category-drag-mode="nest" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${orderButtons}${deleteButton}</div>${subitems}</div>`;
       }).join('');
       const filters = byId('inventoryFilters');
       filters.classList.toggle('is-managing', isManaging);
@@ -1704,11 +1718,11 @@
         button.addEventListener('dragstart', event => event.preventDefault());
       });
       filters.querySelectorAll('[data-category-drag][draggable="true"]').forEach(button => {
-        button.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', button.dataset.categoryDrag); e.dataTransfer.setData('application/x-inventory-parent', button.dataset.categoryParent || ''); button.classList.add('dragging'); });
+        button.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', button.dataset.categoryDrag); e.dataTransfer.setData('application/x-inventory-parent', button.dataset.categoryParent || ''); e.dataTransfer.setData('application/x-inventory-drag-mode', button.dataset.categoryDragMode || 'nest'); button.classList.add('dragging'); });
         button.addEventListener('dragend', () => button.classList.remove('dragging'));
         button.addEventListener('dragover', e => { e.preventDefault(); button.classList.add('drop-target'); });
         button.addEventListener('dragleave', () => button.classList.remove('drop-target'));
-        button.addEventListener('drop', e => { e.preventDefault(); button.classList.remove('drop-target'); const source = e.dataTransfer.getData('text/plain'); const sourceParent = e.dataTransfer.getData('application/x-inventory-parent'); const targetParent = button.dataset.categoryParent || ''; if (!source || source === button.dataset.categoryDrag || source === targetParent) return; if (sourceParent === targetParent) reorderInventoryCategory(source, button.dataset.categoryDrag, targetParent); else moveInventoryCategoryToParent(source, targetParent || button.dataset.categoryDrag); });
+        button.addEventListener('drop', e => { e.preventDefault(); button.classList.remove('drop-target'); const source = e.dataTransfer.getData('text/plain'); const sourceParent = e.dataTransfer.getData('application/x-inventory-parent'); const dragMode = e.dataTransfer.getData('application/x-inventory-drag-mode') || 'nest'; const target = button.dataset.categoryDrag; const targetParent = button.dataset.categoryParent || ''; if (!source || source === target || source === targetParent) return; if (dragMode === 'order') { if (sourceParent === targetParent) reorderInventoryCategory(source, target, targetParent); return; } if (sourceParent === targetParent && targetParent) reorderInventoryCategory(source, target, targetParent); else moveInventoryCategoryToParent(source, targetParent || target); });
       });
     }
     function inventoryCategorySiblings(parent = '') {
@@ -1725,10 +1739,13 @@
       if (!source || !target || source === target) return;
       const visible = inventoryCategorySiblings(parent);
       const order = [...new Set([...(state.inventoryCategoryOrder || categories), ...visible])];
-      const sourceIndex = order.indexOf(source); const targetIndex = order.indexOf(target);
+      const siblingPositions = order.map((name, index) => visible.includes(name) ? index : -1).filter(index => index >= 0);
+      const siblingOrder = siblingPositions.map(index => order[index]);
+      const sourceIndex = siblingOrder.indexOf(source); const targetIndex = siblingOrder.indexOf(target);
       if (sourceIndex < 0 || targetIndex < 0) return;
-      order.splice(sourceIndex, 1);
-      order.splice(order.indexOf(target), 0, source);
+      siblingOrder.splice(sourceIndex, 1);
+      siblingOrder.splice(targetIndex, 0, source);
+      siblingPositions.forEach((position, index) => { order[position] = siblingOrder[index]; });
       state.inventoryCategoryOrder = order;
       saveState();
       renderInventory();
@@ -1773,7 +1790,15 @@
     function moveInventoryCategoryToParent(source, parent) {
       if (!source || !parent || source === parent) return;
       const parents = { ...(state.inventoryCategoryParents || {}) };
+      let ancestor = parent;
+      const visited = new Set();
+      while (ancestor && !visited.has(ancestor)) {
+        if (ancestor === source) return;
+        visited.add(ancestor);
+        ancestor = parents[ancestor] || '';
+      }
       parents[source] = parent;
+      Object.keys(parents).forEach(child => { if (parents[child] === source) parents[child] = parent; });
       state.inventory.forEach(item => {
         if ((item.category || '其他') === source) { item.category = parent; item.subcategory = item.subcategory || source; }
         else if ((item.subcategory || '') === source) item.category = parent;
