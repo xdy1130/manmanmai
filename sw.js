@@ -1,4 +1,4 @@
-const CACHE = 'slow-buy-v43';
+const CACHE = 'slow-buy-v45';
 const ASSETS = ['./', './index.html', './manifest.json', './app-icon.svg'];
 
 self.addEventListener('install', event => {
