@@ -1646,6 +1646,14 @@
         return `<div class="inventory-filter-group"><div class="inventory-filter-top"><button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="true" data-category-drag="${escapeHTML(category)}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${deleteButton}</div>${subitems}</div>`;
       }).join('');
       byId('inventoryFilters').innerHTML = `<button class="filter-chip ${inventoryFilter === '全部' ? 'active' : ''}" type="button" data-inventory-filter="全部">全部库存</button>${groups}`;
+      byId('inventoryFilters').querySelectorAll('[data-delete-inventory-category]').forEach(button => {
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          deleteInventoryCustomCategory(button.getAttribute('data-delete-inventory-category'));
+        });
+        button.addEventListener('dragstart', event => event.preventDefault());
+      });
       byId('inventoryFilters').querySelectorAll('[data-category-drag]').forEach(button => {
         button.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', button.dataset.categoryDrag); button.classList.add('dragging'); });
         button.addEventListener('dragend', () => button.classList.remove('dragging'));
@@ -1954,7 +1962,7 @@
     byId('inventoryName').addEventListener('input', updateInventoryCategorySuggestion);
     byId('inventoryCategory').addEventListener('input', syncInventoryApparelFields);
     byId('inventoryCategory').addEventListener('change', syncInventoryApparelFields);
-    byId('inventoryFilters').addEventListener('click', e => { const remove = e.target.closest('[data-delete-inventory-category]'); if (remove) { e.preventDefault(); e.stopPropagation(); deleteInventoryCustomCategory(remove.getAttribute('data-delete-inventory-category')); return; } const button = e.target.closest('[data-inventory-filter]'); if (!button) return; const nextFilter = button.dataset.inventoryFilter; if (nextFilter === inventoryFilter && !button.dataset.inventorySubcategory) inventoryFilterSubcategory = ''; else inventoryFilterSubcategory = button.dataset.inventorySubcategory || ''; inventoryFilter = nextFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
+    byId('inventoryFilters').addEventListener('click', e => { const remove = e.target.closest('[data-delete-inventory-category]'); if (remove) { e.preventDefault(); e.stopPropagation(); return; } const button = e.target.closest('[data-inventory-filter]'); if (!button) return; const nextFilter = button.dataset.inventoryFilter; if (nextFilter === inventoryFilter && !button.dataset.inventorySubcategory) inventoryFilterSubcategory = ''; else inventoryFilterSubcategory = button.dataset.inventorySubcategory || ''; inventoryFilter = nextFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
     byId('addInventoryCategoryBtn').addEventListener('click', addInventoryCustomCategory);
     document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
     byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
