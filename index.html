@@ -1743,7 +1743,8 @@
       const categoryParents = state.inventoryCategoryParents || {};
       const deletedCategories = state.inventoryDeletedCategories || [];
       const isManaging = inventoryCategoryManageMode;
-      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && !inventoryCategoryParent(category, categoryParents));
+      const inventoryItemCategories = new Set(state.inventory.map(item => String(item.category || '其他').trim() || '其他'));
+      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && (!inventoryCategoryParent(category, categoryParents) || inventoryItemCategories.has(category)));
       const groups = ordered.map(category => {
         const mappedChildren = Object.entries(categoryParents).filter(([, parent]) => parent === category).map(([child]) => child);
         const itemChildren = state.inventory.filter(item => (item.category || '其他') === category && item.subcategory).map(item => item.subcategory);
@@ -1751,7 +1752,7 @@
         const subcategories = sortInventoryCategories([...new Set([...standardChildren, ...mappedChildren, ...itemChildren])]);
         const itemCount = state.inventory.filter(item => inventoryItemBelongsToCategory(item, category)).length;
         const expanded = inventoryFilter === category;
-        const revealSubcategories = expanded || mappedChildren.length > 0 || itemChildren.length > 0;
+        const revealSubcategories = expanded;
         const dragHandle = (name, parent) => isManaging ? `<span class="inventory-drag-handle" draggable="true" data-category-drag="${escapeHTML(name)}" data-category-parent="${escapeHTML(parent)}" data-category-drag-mode="order" title="拖动调整顺序" aria-label="拖动调整顺序">⋮⋮</span>` : '';
         const subitems = subcategories.length ? `<div class="inventory-filter-subitems"${revealSubcategories ? '' : ' hidden'}>${subcategories.map(subcategory => { const subOrderButtons = isManaging ? `<span class="inventory-category-order"><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="up" title="上移" aria-label="上移二级分类">↑</button><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="down" title="下移" aria-label="下移二级分类">↓</button></span>` : ''; return `<div class="inventory-filter-subitem-row">${dragHandle(subcategory, category)}<button class="filter-chip subcategory" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(subcategory)}" data-category-parent="${escapeHTML(category)}" data-category-drag-mode="nest" data-inventory-filter="${escapeHTML(category)}" data-inventory-subcategory="${escapeHTML(subcategory)}">${escapeHTML(subcategory)}</button>${subOrderButtons}</div>`; }).join('')}</div>` : '';
         const deleteButton = isManaging && category !== '其他' ? `<button class="btn btn-icon btn-ghost inventory-delete-category" type="button" draggable="false" data-delete-inventory-category="${escapeHTML(category)}" title="删除分类" aria-label="删除分类">×</button>` : '';
