@@ -1,4 +1,4 @@
-const CACHE = 'slow-buy-v42';
+const CACHE = 'slow-buy-v43';
 const ASSETS = ['./', './index.html', './manifest.json', './app-icon.svg'];
 
 self.addEventListener('install', event => {
@@ -13,5 +13,15 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
+  const request = event.request;
+  const isHtml = request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
+  if (isHtml) {
+    event.respondWith(fetch(request).then(response => {
+      const copy = response.clone();
+      caches.open(CACHE).then(cache => cache.put(request, copy));
+      return response;
+    }).catch(() => caches.match(request)));
+    return;
+  }
+  event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
 });
