@@ -1890,6 +1890,9 @@
         orderedGroups.slice(1).forEach(([category]) => inventoryCollapsedCategories.add(category));
         inventoryCategoryViewReady = true;
       }
+      if (inventoryFilter !== '全部') {
+        orderedGroups.forEach(([category]) => inventoryCollapsedCategories.delete(category));
+      }
       byId('inventoryList').innerHTML = orderedGroups.map(([category, items]) => {
         const collapsed = inventoryCollapsedCategories.has(category);
         return `<section class="inventory-group ${collapsed ? 'is-collapsed' : ''}" data-inventory-group="${escapeHTML(category)}"><button class="inventory-group-head" type="button" data-toggle-inventory-group="${escapeHTML(category)}" aria-expanded="${String(!collapsed)}"><span><strong>${escapeHTML(category)}</strong><small>${items.length} 种物品 · ${collapsed ? '点击展开' : '点击收起'}</small></span><i data-lucide="chevron-down"></i></button><div class="list inventory-group-content">${items.map((i, index) => {
