@@ -921,24 +921,77 @@
     let chatView = 'today';
     let decisionStep = 1;
 
+    function inventoryStandardCategoryParent(category) {
+      const name = String(category || '').trim();
+      return Object.entries(standardCategorySubcategories).find(([, children]) => children.includes(name))?.[0] || '';
+    }
+    function inventoryCategoryParent(category, parents = {}) {
+      const name = String(category || '').trim();
+      return String(parents[name] || '').trim() || inventoryStandardCategoryParent(name);
+    }
+    function resolveInventoryCategory(category, parents = {}) {
+      let current = String(category || '其他').trim() || '其他';
+      let firstChild = '';
+      const visited = new Set();
+      while (inventoryCategoryParent(current, parents) && !visited.has(current)) {
+        if (!firstChild) firstChild = current;
+        visited.add(current);
+        current = inventoryCategoryParent(current, parents) || '其他';
+      }
+      return { category: current, child: firstChild };
+    }
+    function normalizeInventoryItems(items = [], parents = {}) {
+      return items.map(item => {
+        const rawCategory = String(item.category || '其他').trim() || '其他';
+        const resolved = resolveInventoryCategory(rawCategory, parents);
+        if (!resolved.child || resolved.category === rawCategory) return item;
+        const existingSubcategory = String(item.subcategory || '').trim();
+        return { ...item, category: resolved.category, subcategory: existingSubcategory && existingSubcategory !== '未分类' ? existingSubcategory : resolved.child };
+      });
+    }
+    function inventoryCategoryIncludes(category, ancestor) {
+      if (!ancestor) return false;
+      let current = String(category || '其他').trim() || '其他';
+      const visited = new Set();
+      const parents = state.inventoryCategoryParents || {};
+      while (current && !visited.has(current)) {
+        if (current === ancestor) return true;
+        visited.add(current);
+        current = inventoryCategoryParent(current, parents);
+      }
+      return false;
+    }
+    function inventoryItemBelongsToCategory(item, category) {
+      return inventoryCategoryIncludes(item?.category || '其他', category);
+    }
+    function inventoryItemMatchesFilter(item) {
+      if (inventoryFilter === '全部') return true;
+      const itemCategory = String(item?.category || '其他').trim() || '其他';
+      if (!inventoryFilterSubcategory) return inventoryItemBelongsToCategory(item, inventoryFilter);
+      const itemSubcategory = String(item?.subcategory || '').trim();
+      return (itemCategory === inventoryFilter && itemSubcategory === inventoryFilterSubcategory) || itemCategory === inventoryFilterSubcategory;
+    }
+
     function loadState(storageKey = currentStoreKey) {
       try {
         const saved = JSON.parse(localStorage.getItem(storageKey));
+        const inventoryCategoryParents = saved?.inventoryCategoryParents && typeof saved.inventoryCategoryParents === 'object' ? saved.inventoryCategoryParents : {};
         const migratedInventory = Array.isArray(saved?.inventory) ? saved.inventory.map(item => {
           const name = String(item.name || '');
           if (/面霜/.test(name)) return { ...item, category: '护肤', subcategory: '面霜' };
           if (/面膜/.test(name)) return { ...item, category: '护肤', subcategory: '面膜' };
           return item;
         }) : [];
+        const normalizedInventory = normalizeInventoryItems(migratedInventory, inventoryCategoryParents);
         return saved ? {
           ...defaultState,
           ...saved,
-          inventory: migratedInventory,
+          inventory: normalizedInventory,
           inventoryCategoryOrder: Array.isArray(saved.inventoryCategoryOrder) && saved.inventoryCategoryOrder.length ? saved.inventoryCategoryOrder : [...categories],
-          inventoryCategoryParents: saved.inventoryCategoryParents && typeof saved.inventoryCategoryParents === 'object' ? saved.inventoryCategoryParents : {},
+          inventoryCategoryParents,
           inventoryDeletedCategories: Array.isArray(saved.inventoryDeletedCategories) ? saved.inventoryDeletedCategories : [],
           inventoryTombstones: saved.inventoryTombstones && typeof saved.inventoryTombstones === 'object' ? saved.inventoryTombstones : {},
-          inventoryCategories: [...new Set([...categories, ...(Array.isArray(saved.inventoryCategories) ? saved.inventoryCategories : []), ...migratedInventory.map(item => item.category).filter(Boolean)])],
+          inventoryCategories: [...new Set([...categories, ...(Array.isArray(saved.inventoryCategories) ? saved.inventoryCategories : []), ...Object.keys(inventoryCategoryParents), ...Object.values(inventoryCategoryParents), ...normalizedInventory.map(item => item.category).filter(Boolean)])],
           inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
           chatHistory: Array.isArray(saved.chatHistory) ? saved.chatHistory : [],
           chatContext: { ...defaultState.chatContext, ...(saved.chatContext || {}) }
@@ -1141,18 +1194,19 @@
       const inventoryTombstones = mergeInventoryTombstones(localState.inventoryTombstones, remoteState.inventoryTombstones);
       const inventoryDeletedCategories = [...new Set([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])])];
       const inventoryCategoryParents = { ...(localState.inventoryCategoryParents || {}), ...(remoteState.inventoryCategoryParents || {}) };
+      const mergedInventory = normalizeInventoryItems(mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones), inventoryCategoryParents);
       return {
         ...defaultState,
         ...localState,
         ...remoteState,
         hosts: mergeById(localState.hosts, remoteState.hosts),
-        inventory: mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones),
+        inventory: mergedInventory,
         inventoryTombstones,
         expenses: mergeById(localState.expenses, remoteState.expenses),
         inventoryDeletedCategories,
         inventoryCategoryParents,
         inventoryCategoryOrder: [...new Set([...(localState.inventoryCategoryOrder || categories), ...(remoteState.inventoryCategoryOrder || categories)])].filter(category => !inventoryDeletedCategories.includes(category)),
-        inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories)])].filter(category => !inventoryDeletedCategories.includes(category)),
+        inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories), ...Object.keys(inventoryCategoryParents), ...Object.values(inventoryCategoryParents), ...mergedInventory.map(item => item.category).filter(Boolean)])].filter(category => !inventoryDeletedCategories.includes(category)),
         inventoryUnits: [...new Set([...(localState.inventoryUnits || defaultInventoryUnits), ...(remoteState.inventoryUnits || defaultInventoryUnits)])],
         chatHistory: [...(localState.chatHistory || []), ...(remoteState.chatHistory || [])].slice(-40),
         chatContext: { ...defaultState.chatContext, ...(localState.chatContext || {}), ...(remoteState.chatContext || {}) }
@@ -1689,18 +1743,19 @@
       const categoryParents = state.inventoryCategoryParents || {};
       const deletedCategories = state.inventoryDeletedCategories || [];
       const isManaging = inventoryCategoryManageMode;
-      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && !categoryParents[category]);
+      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && !inventoryCategoryParent(category, categoryParents));
       const groups = ordered.map(category => {
         const mappedChildren = Object.entries(categoryParents).filter(([, parent]) => parent === category).map(([child]) => child);
         const itemChildren = state.inventory.filter(item => (item.category || '其他') === category && item.subcategory).map(item => item.subcategory);
         const standardChildren = standardCategorySubcategories[category] || [];
         const subcategories = sortInventoryCategories([...new Set([...standardChildren, ...mappedChildren, ...itemChildren])]);
+        const itemCount = state.inventory.filter(item => inventoryItemBelongsToCategory(item, category)).length;
         const expanded = inventoryFilter === category;
         const dragHandle = (name, parent) => isManaging ? `<span class="inventory-drag-handle" draggable="true" data-category-drag="${escapeHTML(name)}" data-category-parent="${escapeHTML(parent)}" data-category-drag-mode="order" title="拖动调整顺序" aria-label="拖动调整顺序">⋮⋮</span>` : '';
         const subitems = subcategories.length ? `<div class="inventory-filter-subitems"${expanded ? '' : ' hidden'}>${subcategories.map(subcategory => { const subOrderButtons = isManaging ? `<span class="inventory-category-order"><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="up" title="上移" aria-label="上移二级分类">↑</button><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(subcategory)}" data-move-category-parent="${escapeHTML(category)}" data-move-direction="down" title="下移" aria-label="下移二级分类">↓</button></span>` : ''; return `<div class="inventory-filter-subitem-row">${dragHandle(subcategory, category)}<button class="filter-chip subcategory" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(subcategory)}" data-category-parent="${escapeHTML(category)}" data-category-drag-mode="nest" data-inventory-filter="${escapeHTML(category)}" data-inventory-subcategory="${escapeHTML(subcategory)}">${escapeHTML(subcategory)}</button>${subOrderButtons}</div>`; }).join('')}</div>` : '';
         const deleteButton = isManaging && category !== '其他' ? `<button class="btn btn-icon btn-ghost inventory-delete-category" type="button" draggable="false" data-delete-inventory-category="${escapeHTML(category)}" title="删除分类" aria-label="删除分类">×</button>` : '';
         const orderButtons = isManaging ? `<span class="inventory-category-order"><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(category)}" data-move-category-parent="" data-move-direction="up" title="上移" aria-label="上移分类">↑</button><button class="btn btn-ghost" type="button" data-move-category="${escapeHTML(category)}" data-move-category-parent="" data-move-direction="down" title="下移" aria-label="下移分类">↓</button></span>` : '';
-        return `<div class="inventory-filter-group"><div class="inventory-filter-top">${dragHandle(category, '')}<button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(category)}" data-category-drag-mode="nest" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${orderButtons}${deleteButton}</div>${subitems}</div>`;
+        return `<div class="inventory-filter-group"><div class="inventory-filter-top">${dragHandle(category, '')}<button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="${isManaging ? 'true' : 'false'}" data-category-drag="${escapeHTML(category)}" data-category-drag-mode="nest" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${itemCount ? ` <small>(${itemCount})</small>` : ''}</button>${orderButtons}${deleteButton}</div>${subitems}</div>`;
       }).join('');
       const filters = byId('inventoryFilters');
       filters.classList.toggle('is-managing', isManaging);
@@ -1730,7 +1785,7 @@
       const categoryParents = state.inventoryCategoryParents || {};
       const deleted = state.inventoryDeletedCategories || [];
       const items = state.inventory || [];
-      if (!parent) return sortInventoryCategories([...(state.inventoryCategories || []), ...items.map(item => item.category || '其他'), ...Object.keys(categoryParents)]).filter(category => !deleted.includes(category) && !categoryParents[category]);
+      if (!parent) return sortInventoryCategories([...(state.inventoryCategories || []), ...items.map(item => item.category || '其他'), ...Object.keys(categoryParents)]).filter(category => !deleted.includes(category) && !inventoryCategoryParent(category, categoryParents));
       const standardChildren = standardCategorySubcategories[parent] || [];
       const mappedChildren = Object.entries(categoryParents).filter(([, mappedParent]) => mappedParent === parent).map(([child]) => child);
       const itemChildren = items.filter(item => (item.category || '其他') === parent && item.subcategory).map(item => item.subcategory);
@@ -1806,6 +1861,7 @@
         else if ((item.subcategory || '') === source) item.category = parent;
       });
       state.inventoryCategoryParents = parents;
+      state.inventory = normalizeInventoryItems(state.inventory, parents);
       inventoryFilter = parent;
       inventoryFilterSubcategory = source;
       saveState();
@@ -1821,7 +1877,7 @@
       renderInventoryFilters(categoriesToShow);
       byId('inventoryCount').textContent = `${state.inventory.length} 种物品，共 ${total.toLocaleString('zh-CN')} 件`;
       byId('inventoryCurrentTitle').textContent = inventoryFilter === '全部' ? '全部库存' : `${inventoryFilter}${inventoryFilterSubcategory ? ` · ${inventoryFilterSubcategory}` : ''}`;
-      const filtered = state.inventory.filter(item => (inventoryFilter === '全部' || ((item.category || '其他') === inventoryFilter && (!inventoryFilterSubcategory || (item.subcategory || '未分类') === inventoryFilterSubcategory))) && (!inventorySearch || String(item.name || '').toLowerCase().includes(inventorySearch.toLowerCase())));
+      const filtered = state.inventory.filter(item => inventoryItemMatchesFilter(item) && (!inventorySearch || String(item.name || '').toLowerCase().includes(inventorySearch.toLowerCase())));
       if (!filtered.length) { byId('inventoryList').innerHTML = '<div class="empty">还没有匹配的库存，试试换个分类或直接添加。</div>'; return; }
       const groups = new Map();
       [...filtered].sort((a, b) => {
@@ -2183,10 +2239,10 @@
     byId('inventoryForm').addEventListener('submit', async e => {
       e.preventDefault(); const id = byId('inventoryId').value || uid(); const existing = state.inventory.find(i => i.id === id);
       const previousState = structuredClone(state);
-      const category = byId('inventoryCategory').value.trim() || '其他'; const unit = byId('inventoryUnit').value.trim() || '件'; const isApparel = isApparelInventoryCategory(category); const isSkincare = isSkincareInventoryCategory(category);
+      const rawCategory = byId('inventoryCategory').value.trim() || '其他'; const resolvedCategory = resolveInventoryCategory(rawCategory, state.inventoryCategoryParents || {}); const category = resolvedCategory.category; const unit = byId('inventoryUnit').value.trim() || '件'; const isApparel = isApparelInventoryCategory(rawCategory) || isApparelInventoryCategory(category); const isSkincare = isSkincareInventoryCategory(rawCategory) || isSkincareInventoryCategory(category); const typedSubcategory = byId('inventorySubcategory').value.trim(); const subcategory = typedSubcategory || resolvedCategory.child;
       const selectedImage = inventoryImageRemoved ? '' : (inventoryImageData || inventoryImageCache.get(id) || existing?.image || '');
-        const item = { id, name: byId('inventoryName').value.trim(), category, subcategory: isApparel || isSkincare ? byId('inventorySubcategory').value.trim() : '', style: isApparel ? byId('inventoryStyle').value.trim() : '', outfitPairing: isApparel ? byId('inventoryPairing').value.trim() : '', qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: '', sourceExpenseId: inventorySourceExpenseId || existing?.sourceExpenseId || '', updatedAt: Date.now() };
-      state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), category])];
+        const item = { id, name: byId('inventoryName').value.trim(), category, subcategory, style: isApparel ? byId('inventoryStyle').value.trim() : '', outfitPairing: isApparel ? byId('inventoryPairing').value.trim() : '', qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: '', sourceExpenseId: inventorySourceExpenseId || existing?.sourceExpenseId || '', updatedAt: Date.now() };
+      state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), rawCategory, category])];
       state.inventoryUnits = [...new Set([...(state.inventoryUnits || defaultInventoryUnits), unit])];
       if (existing) Object.assign(existing, item); else state.inventory.push(item);
       if (!saveState()) {
