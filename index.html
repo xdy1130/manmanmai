@@ -1099,6 +1099,7 @@
     }
     function mergeState(localState, remoteState) {
       const inventoryTombstones = mergeInventoryTombstones(localState.inventoryTombstones, remoteState.inventoryTombstones);
+      const inventoryDeletedCategories = [...new Set([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])])];
       return {
         ...defaultState,
         ...localState,
@@ -1107,7 +1108,8 @@
         inventory: mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones),
         inventoryTombstones,
         expenses: mergeById(localState.expenses, remoteState.expenses),
-        inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories)])],
+        inventoryDeletedCategories,
+        inventoryCategories: [...new Set([...(localState.inventoryCategories || categories), ...(remoteState.inventoryCategories || categories)])].filter(category => !inventoryDeletedCategories.includes(category)),
         inventoryUnits: [...new Set([...(localState.inventoryUnits || defaultInventoryUnits), ...(remoteState.inventoryUnits || defaultInventoryUnits)])],
         chatHistory: [...(localState.chatHistory || []), ...(remoteState.chatHistory || [])].slice(-40),
         chatContext: { ...defaultState.chatContext, ...(localState.chatContext || {}), ...(remoteState.chatContext || {}) }
