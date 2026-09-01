@@ -401,11 +401,15 @@
     .inventory-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:18px; align-items:start; }
     .inventory-sidebar { position:sticky; top:18px; padding:14px; border:1px solid var(--border); border-radius:14px; background:var(--surface); }
     .inventory-sidebar-title { margin:0 0 10px; color:var(--text); font-size:14px; font-weight:700; }
+    .inventory-add-category { width:100%; margin-top:10px; border:1px dashed var(--border); color:var(--muted); }
     .inventory-filters { display:grid; gap:5px; }
     .inventory-filters .filter-chip { display:flex; align-items:center; width:100%; justify-content:flex-start; padding:9px 11px; border:0; border-radius:8px; background:transparent; text-align:left; }
     .inventory-filters .filter-chip:hover { background:var(--surface-2); }
     .inventory-filters .filter-chip.active { background:var(--text); color:var(--bg); }
     .inventory-filter-group { display:grid; gap:3px; }
+    .inventory-filter-top { display:flex; align-items:center; gap:4px; }
+    .inventory-filter-top > .filter-chip { flex:1; }
+    .inventory-delete-category { width:28px; min-height:30px; padding:0; border:0; color:var(--muted); font-size:16px; }
     .inventory-filter-subitems { display:grid; gap:3px; margin-left:12px; padding-left:9px; border-left:1px solid var(--border); }
     .inventory-filter-subitems[hidden] { display:none; }
     .inventory-filters .filter-chip.subcategory { min-height:32px; padding:7px 9px; color:var(--muted); font-size:12px; font-weight:500; }
@@ -623,6 +627,7 @@
         <aside class="inventory-sidebar" aria-label="库存分类导航">
           <h3 class="inventory-sidebar-title">库存分类</h3>
           <div class="filter-chips inventory-filters" id="inventoryFilters"></div>
+          <button class="btn btn-ghost inventory-add-category" id="addInventoryCategoryBtn" type="button">＋ 新增自定义分类</button>
         </aside>
         <div class="inventory-main">
           <div class="section-head"><div><h3 id="inventoryCurrentTitle">全部库存</h3><p class="muted small" id="inventoryCount"></p></div><span class="pill" id="inventorySortLabel">按限用日期</span></div>
@@ -822,6 +827,14 @@
       { name: '数码电器', items: ['数码电器', '手机配件', '电脑办公', '影音设备', '小家电'] },
       { name: '兴趣收藏', items: ['收藏爱好', '运动户外', '图书文具', '玩具模型', '宠物用品'] }
     ];
+    const standardCategorySubcategories = {
+      护肤: ['面霜', '面膜'],
+      食品饮料: ['粮油调味', '零食', '饮料茶咖', '生鲜水果'],
+      服饰鞋包: ['上装', '下装', '鞋靴', '箱包配饰'],
+      家居日用: ['厨具餐具', '家纺收纳', '纸品清洁'],
+      数码电器: ['手机配件', '电脑办公', '影音设备', '小家电'],
+      兴趣收藏: ['运动户外', '图书文具', '玩具模型', '宠物用品']
+    };
     const apparelSubcategories = ['春装', '夏装', '秋装', '冬装', '长袖', '短袖', '外套', '毛衣', '卫衣', '衬衫', 'T恤', '裤子', '裙子', '连衣裙', '内衣', '家居服', '运动服', '鞋靴', '首饰', '包包', '帽子', '围巾', '眼镜', '腰带'];
     const skincareSubcategories = ['面霜', '面膜'];
     const apparelStyles = ['通勤', '休闲', '运动', '甜美', '复古', '极简', '户外', '正式', '街头', '度假'];
@@ -837,6 +850,7 @@
       inventoryTombstones: {},
       inventoryCategories: [...categories],
       inventoryCategoryParents: {},
+      inventoryDeletedCategories: [],
       inventoryUnits: [...defaultInventoryUnits],
       expenses: [],
       chatHistory: [],
@@ -888,6 +902,7 @@
           ...saved,
           inventory: migratedInventory,
           inventoryCategoryParents: saved.inventoryCategoryParents && typeof saved.inventoryCategoryParents === 'object' ? saved.inventoryCategoryParents : {},
+          inventoryDeletedCategories: Array.isArray(saved.inventoryDeletedCategories) ? saved.inventoryDeletedCategories : [],
           inventoryTombstones: saved.inventoryTombstones && typeof saved.inventoryTombstones === 'object' ? saved.inventoryTombstones : {},
           inventoryCategories: [...new Set([...categories, ...(Array.isArray(saved.inventoryCategories) ? saved.inventoryCategories : []), ...migratedInventory.map(item => item.category).filter(Boolean)])],
           inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
@@ -1616,14 +1631,17 @@
     }
     function renderInventoryFilters(categoriesToShow) {
       const categoryParents = state.inventoryCategoryParents || {};
-      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !categoryParents[category]);
+      const deletedCategories = state.inventoryDeletedCategories || [];
+      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && !categoryParents[category]);
       const groups = ordered.map(category => {
         const mappedChildren = Object.entries(categoryParents).filter(([, parent]) => parent === category).map(([child]) => child);
         const itemChildren = state.inventory.filter(item => (item.category || '其他') === category && item.subcategory).map(item => item.subcategory);
-        const subcategories = [...new Set([...mappedChildren, ...itemChildren])].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
+        const standardChildren = standardCategorySubcategories[category] || [];
+        const subcategories = [...new Set([...standardChildren, ...mappedChildren, ...itemChildren])].sort((a, b) => String(a).localeCompare(String(b), 'zh-CN'));
         const expanded = inventoryFilter === category;
         const subitems = subcategories.length ? `<div class="inventory-filter-subitems"${expanded ? '' : ' hidden'}>${subcategories.map(subcategory => `<button class="filter-chip subcategory" draggable="true" data-category-drag="${escapeHTML(subcategory)}" data-category-parent="${escapeHTML(category)}" data-inventory-filter="${escapeHTML(category)}" data-inventory-subcategory="${escapeHTML(subcategory)}">${escapeHTML(subcategory)}</button>`).join('')}</div>` : '';
-        return `<div class="inventory-filter-group"><button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="true" data-category-drag="${escapeHTML(category)}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${subitems}</div>`;
+        const deleteButton = category === '其他' ? '' : `<button class="btn btn-icon btn-ghost inventory-delete-category" type="button" data-delete-inventory-category="${escapeHTML(category)}" title="删除分类" aria-label="删除分类">×</button>`;
+        return `<div class="inventory-filter-group"><div class="inventory-filter-top"><button class="filter-chip ${inventoryFilter === category && !inventoryFilterSubcategory ? 'active' : ''}" draggable="true" data-category-drag="${escapeHTML(category)}" type="button" data-inventory-filter="${escapeHTML(category)}">${escapeHTML(category)}${subcategories.length ? ` <small>(${subcategories.length})</small>` : ''}</button>${deleteButton}</div>${subitems}</div>`;
       }).join('');
       byId('inventoryFilters').innerHTML = `<button class="filter-chip ${inventoryFilter === '全部' ? 'active' : ''}" type="button" data-inventory-filter="全部">全部库存</button>${groups}`;
       byId('inventoryFilters').querySelectorAll('[data-category-drag]').forEach(button => {
@@ -1634,6 +1652,33 @@
         button.addEventListener('dragleave', () => button.classList.remove('drop-target'));
         button.addEventListener('drop', e => { e.preventDefault(); button.classList.remove('drop-target'); moveInventoryCategoryToParent(e.dataTransfer.getData('text/plain'), button.dataset.categoryDrag); });
       });
+    }
+    function addInventoryCustomCategory() {
+      const category = window.prompt('请输入新的库存分类名称');
+      const name = String(category || '').trim();
+      if (!name) return;
+      if (name === '全部' || categories.includes(name) || (state.inventoryCategories || []).includes(name)) { showToast('这个分类已经存在'); return; }
+      state.inventoryCategories = [...new Set([...(state.inventoryCategories || categories), name])];
+      state.inventoryDeletedCategories = (state.inventoryDeletedCategories || []).filter(item => item !== name);
+      inventoryFilter = name;
+      inventoryFilterSubcategory = '';
+      inventoryDraftCategory = name;
+      saveState();
+      renderInventory();
+    }
+    function deleteInventoryCustomCategory(category) {
+      if (!category || category === '其他') return;
+      if (!window.confirm(`删除分类“${category}”？其中库存会归入“其他”。`)) return;
+      state.inventory.forEach(item => { if ((item.category || '其他') === category) { item.category = '其他'; item.subcategory = ''; } });
+      state.inventoryCategories = (state.inventoryCategories || []).filter(item => item !== category);
+      state.inventoryDeletedCategories = [...new Set([...(state.inventoryDeletedCategories || []), category])];
+      const parents = { ...(state.inventoryCategoryParents || {}) };
+      delete parents[category];
+      Object.keys(parents).forEach(child => { if (parents[child] === category) delete parents[child]; });
+      state.inventoryCategoryParents = parents;
+      inventoryFilter = '全部'; inventoryFilterSubcategory = ''; inventoryDraftCategory = '';
+      saveState();
+      renderInventory();
     }
     function moveInventoryCategoryToParent(source, parent) {
       if (!source || !parent || source === parent) return;
@@ -1655,7 +1700,7 @@
       const expiring = state.inventory.filter(i => i.expiry && localDate(i.expiry) <= new Date(new Date().setDate(new Date().getDate() + 30))).length;
       const low = state.inventory.filter(i => Number(i.monthlyUsage) > 0 && Number(i.qty) / Number(i.monthlyUsage) < 1.5).length;
       byId('inventoryOverview').innerHTML = `<div class="overview-tile"><span>物品种类</span><strong>${state.inventory.length}</strong></div><div class="overview-tile"><span>总数量</span><strong>${total.toLocaleString('zh-CN')}</strong></div><div class="overview-tile"><span>30天内到期</span><strong>${expiring}</strong></div><div class="overview-tile"><span>快用完</span><strong>${low}</strong></div>`;
-      const categoriesToShow = sortInventoryCategories(state.inventory.map(item => item.category || '其他'));
+      const categoriesToShow = sortInventoryCategories([...state.inventory.map(item => item.category || '其他'), ...(state.inventoryCategories || [])]);
       renderInventoryFilters(categoriesToShow);
       byId('inventoryCount').textContent = `${state.inventory.length} 种物品，共 ${total.toLocaleString('zh-CN')} 件`;
       byId('inventoryCurrentTitle').textContent = inventoryFilter === '全部' ? '全部库存' : `${inventoryFilter}${inventoryFilterSubcategory ? ` · ${inventoryFilterSubcategory}` : ''}`;
@@ -1907,7 +1952,8 @@
     byId('inventoryName').addEventListener('input', updateInventoryCategorySuggestion);
     byId('inventoryCategory').addEventListener('input', syncInventoryApparelFields);
     byId('inventoryCategory').addEventListener('change', syncInventoryApparelFields);
-    byId('inventoryFilters').addEventListener('click', e => { const button = e.target.closest('[data-inventory-filter]'); if (!button) return; const nextFilter = button.dataset.inventoryFilter; if (nextFilter === inventoryFilter && !button.dataset.inventorySubcategory) inventoryFilterSubcategory = ''; else inventoryFilterSubcategory = button.dataset.inventorySubcategory || ''; inventoryFilter = nextFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
+    byId('inventoryFilters').addEventListener('click', e => { const remove = e.target.closest('[data-delete-inventory-category]'); if (remove) { deleteInventoryCustomCategory(remove.dataset.deleteInventoryCategory); return; } const button = e.target.closest('[data-inventory-filter]'); if (!button) return; const nextFilter = button.dataset.inventoryFilter; if (nextFilter === inventoryFilter && !button.dataset.inventorySubcategory) inventoryFilterSubcategory = ''; else inventoryFilterSubcategory = button.dataset.inventorySubcategory || ''; inventoryFilter = nextFilter; inventoryDraftCategory = inventoryFilter === '全部' ? '' : inventoryFilter; renderInventory(); });
+    byId('addInventoryCategoryBtn').addEventListener('click', addInventoryCustomCategory);
     document.querySelectorAll('[data-chat-view]').forEach(button => button.addEventListener('click', () => { chatView = button.dataset.chatView; renderChatHistory(); }));
     byId('toggleAllExpensesBtn').addEventListener('click', e => { const list = byId('expenseList'); const hidden = list.hidden; list.hidden = !hidden; e.currentTarget.textContent = hidden ? '收起全部历史记录' : '展开全部历史记录'; if (hidden) list.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
     document.querySelectorAll('[data-open]').forEach(btn => btn.addEventListener('click', () => { if (btn.dataset.open === 'inventoryModal') { inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryForm').reset(); byId('inventoryId').value = ''; byId('inventoryCategory').value = inventoryDraftCategory; syncInventoryApparelFields(); updateInventoryCategorySuggestion(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = inventoryDraftCategory ? `添加${inventoryDraftCategory}库存` : '添加库存'; } byId(btn.dataset.open).classList.add('open'); }));
