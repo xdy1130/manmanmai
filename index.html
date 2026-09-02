@@ -1744,7 +1744,8 @@
       const deletedCategories = state.inventoryDeletedCategories || [];
       const isManaging = inventoryCategoryManageMode;
       const inventoryItemCategories = new Set(state.inventory.map(item => String(item.category || '其他').trim() || '其他'));
-      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && (!inventoryCategoryParent(category, categoryParents) || inventoryItemCategories.has(category)));
+      const explicitChildCategories = new Set(Object.keys(categoryParents));
+      const ordered = sortInventoryCategories(categoriesToShow).filter(category => !deletedCategories.includes(category) && (!inventoryCategoryParent(category, categoryParents) || inventoryItemCategories.has(category) || explicitChildCategories.has(category)));
       const groups = ordered.map(category => {
         const mappedChildren = Object.entries(categoryParents).filter(([, parent]) => parent === category).map(([child]) => child);
         const itemChildren = state.inventory.filter(item => (item.category || '其他') === category && item.subcategory).map(item => item.subcategory);
@@ -1875,7 +1876,11 @@
       const expiring = state.inventory.filter(i => i.expiry && localDate(i.expiry) <= new Date(new Date().setDate(new Date().getDate() + 30))).length;
       const low = state.inventory.filter(i => Number(i.monthlyUsage) > 0 && Number(i.qty) / Number(i.monthlyUsage) < 1.5).length;
       byId('inventoryOverview').innerHTML = `<div class="overview-tile"><span>物品种类</span><strong>${state.inventory.length}</strong></div><div class="overview-tile"><span>总数量</span><strong>${total.toLocaleString('zh-CN')}</strong></div><div class="overview-tile"><span>30天内到期</span><strong>${expiring}</strong></div><div class="overview-tile"><span>快用完</span><strong>${low}</strong></div>`;
-      const categoriesToShow = sortInventoryCategories([...state.inventory.map(item => item.category || '其他'), ...(state.inventoryCategories || [])]);
+      const categoriesToShow = sortInventoryCategories([
+        ...state.inventory.map(item => item.category || '其他'),
+        ...(state.inventoryCategories || []),
+        ...Object.keys(state.inventoryCategoryParents || {})
+      ]);
       renderInventoryFilters(categoriesToShow);
       byId('inventoryCount').textContent = `${state.inventory.length} 种物品，共 ${total.toLocaleString('zh-CN')} 件`;
       byId('inventoryCurrentTitle').textContent = inventoryFilter === '全部' ? '全部库存' : `${inventoryFilter}${inventoryFilterSubcategory ? ` · ${inventoryFilterSubcategory}` : ''}`;
