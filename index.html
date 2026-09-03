@@ -2160,9 +2160,9 @@
     function renderWardrobeSelects() {
       const items = wardrobeItems();
       const slotItems = {
-        wardrobeOutfitTop: items.filter(item => item.category === '上装'),
-        wardrobeOutfitBottom: items.filter(item => item.category === '下装'),
-        wardrobeOutfitThird: items.filter(item => !['上装', '下装'].includes(item.category))
+        wardrobeOutfitTop: items.filter(item => String(item.category || '').trim() === '上装'),
+        wardrobeOutfitBottom: items.filter(item => String(item.category || '').trim() === '下装'),
+        wardrobeOutfitThird: items.filter(item => !['上装', '下装'].includes(String(item.category || '').trim()))
       };
       const optionHTML = list => list.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} · ${escapeHTML(item.color)}</option>`).join('');
       const wear = byId('wardrobeWearItem'); if (wear) wear.innerHTML = optionHTML(items) || '<option value="">还没有衣物</option>';
