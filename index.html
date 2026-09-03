@@ -1044,6 +1044,16 @@
     function normalizeInventoryDeletedCategories(values = []) {
       return [...new Set(values.map(value => String(value || '').trim()).filter(value => value && value !== '护肤').map(normalizeInventoryCategoryName))];
     }
+    function inventoryUsedCategoryNames(items = []) {
+      return inventoryCategoryNames(
+        items.map(item => normalizeInventoryCategoryName(item?.category) || '其他'),
+        items.map(item => normalizeInventoryCategoryName(item?.subcategory))
+      );
+    }
+    function activeInventoryDeletedCategories(values = [], items = []) {
+      const used = new Set(inventoryUsedCategoryNames(items));
+      return normalizeInventoryDeletedCategories(values).filter(category => !used.has(category));
+    }
     function rememberInventoryCategories(...names) {
       const deleted = new Set(normalizeInventoryDeletedCategories(state.inventoryDeletedCategories || []));
       const currentCategories = Array.isArray(state.inventoryCategories) ? state.inventoryCategories : [];
@@ -1131,7 +1141,9 @@
         const normalizedExpenses = normalizeExpenseCategories(Array.isArray(saved?.expenses) ? saved.expenses : []);
         const savedCategories = Array.isArray(saved?.inventoryCategories) ? saved.inventoryCategories.map(normalizeInventoryCategoryName) : [];
         const savedCategoryOrder = Array.isArray(saved?.inventoryCategoryOrder) ? saved.inventoryCategoryOrder.map(normalizeInventoryCategoryName) : [];
-        const inventoryDeletedCategories = normalizeInventoryDeletedCategories(Array.isArray(saved?.inventoryDeletedCategories) ? saved.inventoryDeletedCategories : []);
+        // 历史版本可能同时保存了“分类已删除”和“该分类仍有物品”两种冲突状态。
+        // 以实际库存为准，避免右侧有物品分组而侧边导航隐藏对应分类。
+        const inventoryDeletedCategories = activeInventoryDeletedCategories(Array.isArray(saved?.inventoryDeletedCategories) ? saved.inventoryDeletedCategories : [], normalizedInventory);
         const inventoryCategoryOrder = inventoryCategoryNames(savedCategoryOrder, categories, savedCategories, Object.keys(inventoryCategoryParents), Object.values(inventoryCategoryParents), normalizedInventory.map(item => item.category)).filter(category => !inventoryDeletedCategories.includes(category));
         return saved ? {
           ...defaultState,
@@ -1343,9 +1355,9 @@
     }
     function mergeState(localState, remoteState) {
       const inventoryTombstones = mergeInventoryTombstones(localState.inventoryTombstones, remoteState.inventoryTombstones);
-      const inventoryDeletedCategories = normalizeInventoryDeletedCategories([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])]);
       const inventoryCategoryParents = normalizeInventoryCategoryParents({ ...(localState.inventoryCategoryParents || {}), ...(remoteState.inventoryCategoryParents || {}) });
       const mergedInventory = normalizeInventoryItems(mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones), inventoryCategoryParents);
+      const inventoryDeletedCategories = activeInventoryDeletedCategories([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])], mergedInventory);
       const mergedExpenses = normalizeExpenseCategories(mergeById(localState.expenses, remoteState.expenses));
       const localCategoryOrder = inventoryCategoryNames(Array.isArray(localState.inventoryCategoryOrder) ? localState.inventoryCategoryOrder : categories);
       const remoteCategoryOrder = inventoryCategoryNames(Array.isArray(remoteState.inventoryCategoryOrder) ? remoteState.inventoryCategoryOrder : categories);
@@ -1514,7 +1526,7 @@
     }
     function iconRefresh() { if (window.lucide) lucide.createIcons({ attrs: { width: 19, height: 19, 'stroke-width': 1.8 } }); }
     function availableCategories() {
-      const deleted = new Set(normalizeInventoryDeletedCategories(state.inventoryDeletedCategories || []));
+      const deleted = new Set(activeInventoryDeletedCategories(state.inventoryDeletedCategories || [], state.inventory || []));
       const saved = inventoryCategoryNames(state.inventoryCategories || [], state.inventoryCategoryOrder || []).filter(category => !deleted.has(category));
       const used = [...(state.inventory || []), ...(state.expenses || [])].map(item => normalizeInventoryCategoryName(item.category)).filter(Boolean);
       const custom = saved.filter(category => !categories.includes(category));
@@ -1986,7 +1998,7 @@
     }
     function renderInventoryFilters() {
       const categoryParents = normalizeInventoryCategoryParents(state.inventoryCategoryParents || {});
-      const deletedCategories = new Set(normalizeInventoryDeletedCategories(state.inventoryDeletedCategories || []));
+      const deletedCategories = new Set(activeInventoryDeletedCategories(state.inventoryDeletedCategories || [], state.inventory || []));
       const isManaging = inventoryCategoryManageMode;
       const inventoryItemCategories = new Set(state.inventory.map(item => normalizeInventoryCategoryName(item.category) || '其他'));
       const explicitChildCategories = new Set(Object.keys(categoryParents));
@@ -2028,8 +2040,8 @@
     }
     function inventoryCategorySiblings(parent = '') {
       const categoryParents = normalizeInventoryCategoryParents(state.inventoryCategoryParents || {});
-      const deleted = new Set(normalizeInventoryDeletedCategories(state.inventoryDeletedCategories || []));
       const items = state.inventory || [];
+      const deleted = new Set(activeInventoryDeletedCategories(state.inventoryDeletedCategories || [], items));
       const normalizedParent = normalizeInventoryCategoryName(parent);
       const itemCategories = items.map(item => normalizeInventoryCategoryName(item.category) || '其他');
       const allCategories = inventoryCategoryNames(categories, state.inventoryCategories || [], state.inventoryCategoryOrder || [], itemCategories, Object.keys(categoryParents), Object.values(categoryParents));
@@ -2140,7 +2152,7 @@
       [...filtered].sort((a, b) => {
         const expiryA = a.expiry || '9999-12-31'; const expiryB = b.expiry || '9999-12-31';
         return String(a.subcategory || '未分类').localeCompare(String(b.subcategory || '未分类'), 'zh-CN') || expiryA.localeCompare(expiryB) || String(a.name).localeCompare(String(b.name), 'zh-CN');
-      }).forEach(item => { const category = item.category || '其他'; if (!groups.has(category)) groups.set(category, []); groups.get(category).push(item); });
+      }).forEach(item => { const category = normalizeInventoryCategoryName(item.category) || '其他'; if (!groups.has(category)) groups.set(category, []); groups.get(category).push(item); });
       const orderedGroups = [...groups.entries()].sort(([categoryA], [categoryB]) => sortInventoryCategories([categoryA, categoryB]).indexOf(categoryA) - sortInventoryCategories([categoryA, categoryB]).indexOf(categoryB));
       if (!inventoryCategoryViewReady) {
         orderedGroups.slice(1).forEach(([category]) => inventoryCollapsedCategories.add(category));
