@@ -2159,15 +2159,21 @@
     }
     function renderWardrobeSelects() {
       const items = wardrobeItems();
-      const options = items.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} · ${escapeHTML(item.color)}</option>`).join('');
-      const wear = byId('wardrobeWearItem'); if (wear) wear.innerHTML = options || '<option value="">还没有衣物</option>';
+      const slotItems = {
+        wardrobeOutfitTop: items.filter(item => item.category === '上装'),
+        wardrobeOutfitBottom: items.filter(item => item.category === '下装'),
+        wardrobeOutfitThird: items.filter(item => !['上装', '下装'].includes(item.category))
+      };
+      const optionHTML = list => list.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.name)} · ${escapeHTML(item.color)}</option>`).join('');
+      const wear = byId('wardrobeWearItem'); if (wear) wear.innerHTML = optionHTML(items) || '<option value="">还没有衣物</option>';
       ['wardrobeOutfitTop','wardrobeOutfitBottom','wardrobeOutfitThird'].forEach(id => {
         const select = byId(id); if (!select) return;
+        const available = slotItems[id];
         const current = select.value;
-        select.innerHTML = `<option value="">选择单品</option>${options}`;
-        if (current && items.some(item => item.id === current)) select.value = current;
+        select.innerHTML = `<option value="">选择单品</option>${optionHTML(available)}`;
+        if (current && available.some(item => item.id === current)) select.value = current;
         const picker = document.querySelector(`[data-wardrobe-picker="${id}"]`); if (!picker) return;
-        picker.innerHTML = items.length ? items.map(item => `<button class="wardrobe-outfit-option${select.value === item.id ? ' active' : ''}" type="button" data-wardrobe-pick="${escapeHTML(id)}" data-wardrobe-pick-id="${escapeHTML(item.id)}"><span class="wardrobe-outfit-option-photo">${item.image ? `<img src="${escapeHTML(item.image)}" alt="">` : '<i data-lucide="shirt"></i>'}</span><span class="wardrobe-outfit-option-name">${escapeHTML(item.name)}</span></button>`).join('') : '<span class="field-help">还没有衣物，请先添加衣物。</span>';
+        picker.innerHTML = available.length ? available.map(item => `<button class="wardrobe-outfit-option${select.value === item.id ? ' active' : ''}" type="button" data-wardrobe-pick="${escapeHTML(id)}" data-wardrobe-pick-id="${escapeHTML(item.id)}"><span class="wardrobe-outfit-option-photo">${item.image ? `<img src="${escapeHTML(item.image)}" alt="">` : '<i data-lucide="shirt"></i>'}</span><span class="wardrobe-outfit-option-name">${escapeHTML(item.name)}</span></button>`).join('') : '<span class="field-help">该类别还没有衣物，请先添加对应类别。</span>';
       });
       iconRefresh();
     }
