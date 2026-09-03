@@ -1032,8 +1032,7 @@
     <form class="modal-sheet form-grid" id="wardrobeAddForm">
       <div class="modal-head span-2"><div><h2 id="wardrobeAddModalTitle">添加衣物</h2><p class="wardrobe-modal-copy">先记下最重要的信息，照片和搭配之后再补充。</p></div><button class="btn btn-icon btn-ghost" type="button" data-wardrobe-close aria-label="关闭"><i data-lucide="x"></i></button></div>
       <label class="span-2">衣物名称<input id="wardrobeItemName" required maxlength="40" placeholder="例如：米白针织衫"></label>
-      <label>类别<select id="wardrobeItemCategory"></select><span class="field-help">没有合适的类别？可在下方新增自定义类别。</span></label>
-      <label>自定义类别<input id="wardrobeCustomCategory" maxlength="20" placeholder="例如：家居服、汉服"><span class="field-help">填写后会加入全局类别，并自动选中。</span></label>
+      <label class="span-2">类别<select id="wardrobeItemCategory"></select><span class="field-help">如需新增类别，请在上方衣物分类栏点击“自定义类别”。</span></label>
       <label>颜色<input id="wardrobeItemColor" required maxlength="16" placeholder="例如：米白"></label>
       <label>风格<select id="wardrobeItemStyle"><option>通勤</option><option>休闲</option><option>运动</option><option>极简</option><option>复古</option><option>正式</option></select></label>
       <label>季节<select id="wardrobeItemSeason"><option>春秋</option><option>夏</option><option>冬</option><option>四季</option></select></label>
@@ -1047,6 +1046,14 @@
       <div class="modal-head"><h2 id="wardrobeDetailTitle">衣物详情</h2><button class="btn btn-icon btn-ghost" type="button" data-wardrobe-close aria-label="关闭"><i data-lucide="x"></i></button></div>
       <div id="wardrobeDetailContent"></div>
     </section>
+  </div>
+
+  <div class="modal" id="wardrobeCategoryModal" role="dialog" aria-modal="true" aria-labelledby="wardrobeCategoryTitle">
+    <form class="modal-sheet form-grid" id="wardrobeCategoryForm">
+      <div class="modal-head span-2"><div><h2 id="wardrobeCategoryTitle">新增衣物类别</h2><p class="wardrobe-modal-copy">新增后会同步出现在衣橱筛选和添加衣物中。</p></div><button class="btn btn-icon btn-ghost" type="button" data-wardrobe-close aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <label class="span-2">类别名称<input id="wardrobeCategoryName" required maxlength="20" placeholder="例如：家居服、汉服、功能内衣"></label>
+      <button class="btn btn-primary span-2" type="submit"><i data-lucide="plus"></i>添加类别</button>
+    </form>
   </div>
 
   <div class="modal" id="wardrobeWearModal" role="dialog" aria-modal="true" aria-labelledby="wardrobeWearTitle">
@@ -1199,7 +1206,9 @@
       inventoryDeletedCategories: [],
       inventoryUnits: [...defaultInventoryUnits],
       wardrobeCategories: ['上装', '下装', '外套', '鞋包', '配饰', '套装'],
-      wardrobe: [
+      wardrobe: [], /* 用户首次使用时从空衣橱开始 */
+      /* 示例衣物不作为真实数据注入；样例由空状态界面展示 */
+      /*
         { id: 'wardrobe-knit', name: '米白针织衫', category: '上装', color: '米白', style: '通勤', season: '春秋', wearCount: 9, lastWorn: '2026-08-26', status: 'keep' },
         { id: 'wardrobe-pants', name: '黑色直筒裤', category: '下装', color: '黑色', style: '通勤', season: '四季', wearCount: 15, lastWorn: '2026-08-30', status: 'keep' },
         { id: 'wardrobe-trench', name: '卡其短风衣', category: '外套', color: '卡其', style: '通勤', season: '春秋', wearCount: 3, lastWorn: '2026-05-15', status: 'observe' },
@@ -1209,15 +1218,9 @@
         { id: 'wardrobe-dress', name: '红色连衣裙', category: '上装', color: '红色', style: '正式', season: '夏', wearCount: 1, lastWorn: '2025-12-01', status: 'observe' },
         { id: 'wardrobe-hoodie', name: '灰色连帽卫衣', category: '上装', color: '灰色', style: '休闲', season: '秋冬', wearCount: 2, lastWorn: '2025-11-11', status: 'observe' }
       ],
-      wardrobeOutfits: [
-        { id: 'outfit-commute', name: '米白针织衫 · 通勤', itemIds: ['wardrobe-knit', 'wardrobe-pants', 'wardrobe-loafer'], tag: '通勤 · 18℃', uses: 6 },
-        { id: 'outfit-casual', name: '周末轻松出门', itemIds: ['wardrobe-tee', 'wardrobe-jeans', 'wardrobe-hoodie'], tag: '休闲 · 不重复', uses: 3 }
-      ],
-      wardrobeWearLogs: [
-        { id: 'wear-1', itemIds: ['wardrobe-knit', 'wardrobe-pants', 'wardrobe-loafer'], date: '2026-09-01', feeling: 'like' },
-        { id: 'wear-2', itemIds: ['wardrobe-jeans', 'wardrobe-tee'], date: '2026-08-29', feeling: 'ok' },
-        { id: 'wear-3', itemIds: ['wardrobe-trench', 'wardrobe-knit', 'wardrobe-pants'], date: '2026-05-15', feeling: 'like' }
-      ],
+      */
+      wardrobeOutfits: [],
+      wardrobeWearLogs: [],
       expenses: [],
       chatHistory: [],
       chatContext: { date: null, platform: null }
@@ -1257,6 +1260,7 @@
     let chatView = 'today';
     let decisionStep = 1;
     let wardrobeFilter = '全部';
+    let wardrobeEditingId = '';
     let wardrobeSearch = '';
 
     function normalizeInventoryCategoryName(category) {
@@ -1363,6 +1367,9 @@
     function loadState(storageKey = currentStoreKey) {
       try {
         const saved = JSON.parse(localStorage.getItem(storageKey));
+        const demoWardrobeIds = new Set(['wardrobe-knit','wardrobe-pants','wardrobe-trench','wardrobe-jeans','wardrobe-tee','wardrobe-loafer','wardrobe-dress','wardrobe-hoodie']);
+        const savedWardrobe = Array.isArray(saved?.wardrobe) ? saved.wardrobe : [];
+        const isUntouchedDemo = savedWardrobe.length && savedWardrobe.every(item => demoWardrobeIds.has(item?.id)) && !(saved?.wardrobeWearLogs || []).some(log => !String(log.id || '').startsWith('wear-'));
         const inventoryCategoryParents = normalizeInventoryCategoryParents(saved?.inventoryCategoryParents && typeof saved.inventoryCategoryParents === 'object' ? saved.inventoryCategoryParents : {});
         const migratedInventory = Array.isArray(saved?.inventory) ? saved.inventory.map(item => {
           const name = String(item.name || '');
@@ -1391,7 +1398,10 @@
           inventoryCategories: inventoryCategoryNames(categories, savedCategories, savedCategoryOrder, inventoryCategoryOrder, Object.keys(inventoryCategoryParents), Object.values(inventoryCategoryParents), normalizedInventory.map(item => item.category)).filter(category => !inventoryDeletedCategories.includes(category)),
           inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
           chatHistory: Array.isArray(saved.chatHistory) ? saved.chatHistory : [],
-          chatContext: { ...defaultState.chatContext, ...(saved.chatContext || {}) }
+          chatContext: { ...defaultState.chatContext, ...(saved.chatContext || {}) },
+          wardrobe: isUntouchedDemo ? [] : (Array.isArray(saved.wardrobe) ? saved.wardrobe : []),
+          wardrobeOutfits: isUntouchedDemo ? [] : (Array.isArray(saved.wardrobeOutfits) ? saved.wardrobeOutfits : []),
+          wardrobeWearLogs: isUntouchedDemo ? [] : (Array.isArray(saved.wardrobeWearLogs) ? saved.wardrobeWearLogs : [])
         } : structuredClone(defaultState);
       } catch { return structuredClone(defaultState); }
     }
@@ -2126,7 +2136,7 @@
       byId('wardrobeTodayOutfit').innerHTML = topOutfit ? wardrobeOutfitCard(topOutfit) : '<div class="wardrobe-empty">先保存一套搭配，明天就能一键复用。</div>';
       const query = wardrobeSearch.trim().toLowerCase();
       const filtered = items.filter(item => wardrobeCategoryMatch(item, wardrobeFilter) && (!query || [item.name, item.color, item.style, item.season].join(' ').toLowerCase().includes(query)));
-      byId('wardrobeItemsGrid').innerHTML = filtered.length ? filtered.map(wardrobeItemCard).join('') : '<div class="wardrobe-empty">没有匹配的衣物，试试换个筛选条件。</div>';
+      byId('wardrobeItemsGrid').innerHTML = filtered.length ? filtered.map(wardrobeItemCard).join('') : (items.length ? '<div class="wardrobe-empty">没有匹配的衣物，试试换个筛选条件。</div>' : '<div class="wardrobe-empty">你的衣橱还是空的，先添加一件衣物开始清点。</div>');
       const outfits = state.wardrobeOutfits || [];
       byId('wardrobeOutfitsGrid').innerHTML = outfits.length ? outfits.map(outfit => wardrobeOutfitCard(outfit, true)).join('') : '<div class="wardrobe-empty">还没有保存的穿搭组合。</div>';
       const declutter = [...idleItems].sort((a,b) => wardrobeScore(b) - wardrobeScore(a));
@@ -2161,7 +2171,7 @@
       const item = wardrobeItems().find(entry => entry.id === id); if (!item) return;
       const score = wardrobeScore(item); const outfits = (state.wardrobeOutfits || []).filter(outfit => (outfit.itemIds || []).includes(id));
       byId('wardrobeDetailTitle').textContent = item.name;
-      byId('wardrobeDetailContent').innerHTML = `<div class="wardrobe-detail"><div class="wardrobe-detail-top"><div class="wardrobe-item-photo">${wardrobeMedia(item)}<span class="wardrobe-color-dot" style="background:${wardrobeColor(item.color)}"></span></div><div class="wardrobe-detail-meta"><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.category)} · ${escapeHTML(item.color)} · ${escapeHTML(item.style || '日常')}</span><span>${escapeHTML(item.season || '四季')} · 上次穿着 ${escapeHTML(item.lastWorn || '暂无')}</span><span class="pill" style="width:max-content">${score >= 55 ? '建议考虑断舍离' : score >= 30 ? '放入观察区' : '高频使用中'}</span></div></div><div class="wardrobe-detail-stats"><div class="wardrobe-detail-stat"><strong>${Number(item.wearCount || 0)}</strong><span>穿着次数</span></div><div class="wardrobe-detail-stat"><strong>${wardrobeDaysSince(item.lastWorn)}</strong><span>天未穿</span></div><div class="wardrobe-detail-stat"><strong>${outfits.length}</strong><span>套搭配</span></div></div><section class="wardrobe-card" style="padding:14px"><div class="wardrobe-card-head" style="margin-bottom:0"><div><h3>已保存搭配</h3><p>${outfits.length ? outfits.map(outfit => escapeHTML(outfit.name)).join('、') : '还没有搭配，去“我的穿搭”试试。'}</p></div></div></section><div class="btn-row"><button class="btn" type="button" data-wardrobe-close>关闭</button><button class="btn btn-primary" type="button" data-wardrobe-detail-wear="${escapeHTML(item.id)}"><i data-lucide="calendar-check-2"></i>今天穿它</button></div></div>`;
+      byId('wardrobeDetailContent').innerHTML = `<div class="wardrobe-detail"><div class="wardrobe-detail-top"><div class="wardrobe-item-photo">${wardrobeMedia(item)}<span class="wardrobe-color-dot" style="background:${wardrobeColor(item.color)}"></span></div><div class="wardrobe-detail-meta"><strong>${escapeHTML(item.name)}</strong><span>${escapeHTML(item.category)} · ${escapeHTML(item.color)} · ${escapeHTML(item.style || '日常')}</span><span>${escapeHTML(item.season || '四季')} · 上次穿着 ${escapeHTML(item.lastWorn || '暂无')}</span><span class="pill" style="width:max-content">${score >= 55 ? '建议考虑断舍离' : score >= 30 ? '放入观察区' : '高频使用中'}</span></div></div><div class="wardrobe-detail-stats"><div class="wardrobe-detail-stat"><strong>${Number(item.wearCount || 0)}</strong><span>穿着次数</span></div><div class="wardrobe-detail-stat"><strong>${wardrobeDaysSince(item.lastWorn)}</strong><span>天未穿</span></div><div class="wardrobe-detail-stat"><strong>${outfits.length}</strong><span>套搭配</span></div></div><section class="wardrobe-card" style="padding:14px"><div class="wardrobe-card-head" style="margin-bottom:0"><div><h3>已保存搭配</h3><p>${outfits.length ? outfits.map(outfit => escapeHTML(outfit.name)).join('、') : '还没有搭配，去“我的穿搭”试试。'}</p></div></div></section><div class="btn-row"><button class="btn" type="button" data-wardrobe-close>关闭</button><button class="btn" type="button" data-wardrobe-edit="${escapeHTML(item.id)}">编辑</button><button class="btn btn-danger" type="button" data-wardrobe-delete="${escapeHTML(item.id)}">删除</button><button class="btn btn-primary" type="button" data-wardrobe-detail-wear="${escapeHTML(item.id)}"><i data-lucide="calendar-check-2"></i>今天穿它</button></div></div>`;
       byId('wardrobeDetailModal').classList.add('open'); iconRefresh();
     }
 
@@ -3001,26 +3011,59 @@
     document.querySelector('[data-wardrobe-inventory-entry]').addEventListener('click', () => { goToPage('wardrobe'); wardrobeSwitchTab('items'); });
     document.querySelector('[data-wardrobe-start-inventory]').addEventListener('click', () => wardrobeSwitchTab('items'));
     document.querySelector('[data-wardrobe-start-outfits]').addEventListener('click', () => wardrobeSwitchTab('outfits'));
-    document.querySelectorAll('[data-wardrobe-open-add]').forEach(button => button.addEventListener('click', () => { byId('wardrobeAddForm').reset(); renderWardrobeCategoryControls(); byId('wardrobeAddModal').classList.add('open'); }));
+    const openWardrobeAdd = () => { wardrobeEditingId = ''; byId('wardrobeAddForm').reset(); byId('wardrobeItemImage').dataset.data = ''; byId('wardrobeAddModalTitle').textContent = '添加衣物'; renderWardrobeCategoryControls(); byId('wardrobeAddModal').classList.add('open'); };
+    document.querySelectorAll('[data-wardrobe-open-add]').forEach(button => button.addEventListener('click', openWardrobeAdd));
     document.querySelectorAll('[data-wardrobe-close]').forEach(button => button.addEventListener('click', () => button.closest('.modal')?.classList.remove('open')));
     byId('wardrobeAddModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
+    byId('wardrobeCategoryModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     byId('wardrobeDetailModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     byId('wardrobeWearModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     byId('wardrobeOutfitModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     byId('wardrobeSearch').addEventListener('input', e => { wardrobeSearch = e.target.value; renderWardrobe(); });
-    byId('wardrobeFilters').addEventListener('click', e => { const add = e.target.closest('[data-wardrobe-add-category]'); if (add) { const name = window.prompt('请输入新的衣物类别'); if (name && name.trim()) { const category = name.trim(); state.wardrobeCategories = [...new Set([...wardrobeCategories(), category])]; saveState(); renderWardrobe(); showToast(`已新增类别：${category}`); } return; } const button = e.target.closest('[data-wardrobe-filter]'); if (!button) return; wardrobeFilter = button.dataset.wardrobeFilter; renderWardrobe(); });
+    byId('wardrobeFilters').addEventListener('click', e => { const add = e.target.closest('[data-wardrobe-add-category]'); if (add) { byId('wardrobeCategoryForm').reset(); byId('wardrobeCategoryModal').classList.add('open'); setTimeout(() => byId('wardrobeCategoryName').focus(), 80); return; } const button = e.target.closest('[data-wardrobe-filter]'); if (!button) return; wardrobeFilter = button.dataset.wardrobeFilter; renderWardrobe(); });
+    byId('wardrobeCategoryForm').addEventListener('submit', e => { e.preventDefault(); const name = byId('wardrobeCategoryName').value.trim(); if (!name) return; const categories = wardrobeCategories(); if (categories.includes(name)) { showToast('这个类别已经存在'); return; } state.wardrobeCategories = [...categories, name]; wardrobeFilter = name; byId('wardrobeCategoryModal').classList.remove('open'); saveState(); renderWardrobe(); showToast(`已新增类别：${name}`); });
     document.getElementById('wardrobeOutfitModal').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-pick]'); if (!button) return; const select = byId(button.dataset.wardrobePick); if (!select) return; select.value = button.dataset.wardrobePickId; button.parentElement.querySelectorAll('[data-wardrobe-pick]').forEach(item => item.classList.toggle('active', item === button)); });
     byId('wardrobeItemsGrid').addEventListener('click', e => { const card = e.target.closest('[data-wardrobe-item]'); if (card) openWardrobeDetail(card.dataset.wardrobeItem); });
     byId('wardrobeItemsGrid').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const card = e.target.closest('[data-wardrobe-item]'); if (card) { e.preventDefault(); openWardrobeDetail(card.dataset.wardrobeItem); } } });
     function openWardrobeWear(itemId = '') { renderWardrobeSelects(); if (itemId) byId('wardrobeWearItem').value = itemId; byId('wardrobeWearModal').classList.add('open'); }
     document.querySelectorAll('[data-wardrobe-log-wear]').forEach(button => button.addEventListener('click', () => openWardrobeWear()));
-    byId('wardrobeDetailContent').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-detail-wear]'); if (button) { byId('wardrobeDetailModal').classList.remove('open'); openWardrobeWear(button.dataset.wardrobeDetailWear); } });
+    byId('wardrobeDetailContent').addEventListener('click', e => {
+      const wearButton = e.target.closest('[data-wardrobe-detail-wear]');
+      if (wearButton) { byId('wardrobeDetailModal').classList.remove('open'); openWardrobeWear(wearButton.dataset.wardrobeDetailWear); return; }
+      const deleteButton = e.target.closest('[data-wardrobe-delete]');
+      if (deleteButton) {
+        const id = deleteButton.dataset.wardrobeDelete;
+        const item = wardrobeItems().find(entry => entry.id === id);
+        if (!item || !window.confirm(`确定删除“${item.name}”吗？`)) return;
+        state.wardrobe = wardrobeItems().filter(entry => entry.id !== id);
+        state.wardrobeOutfits = (state.wardrobeOutfits || []).map(outfit => ({ ...outfit, itemIds: (outfit.itemIds || []).filter(itemId => itemId !== id) })).filter(outfit => outfit.itemIds.length >= 2);
+        state.wardrobeWearLogs = (state.wardrobeWearLogs || []).filter(log => !(log.itemIds || []).includes(id));
+        byId('wardrobeDetailModal').classList.remove('open'); saveState(); renderWardrobe(); showToast('衣物已删除'); return;
+      }
+      const editButton = e.target.closest('[data-wardrobe-edit]');
+      if (editButton) {
+        const item = wardrobeItems().find(entry => entry.id === editButton.dataset.wardrobeEdit);
+        if (!item) return;
+        wardrobeEditingId = item.id;
+        byId('wardrobeItemName').value = item.name || '';
+        byId('wardrobeItemColor').value = item.color || '';
+        byId('wardrobeItemStyle').value = item.style || '通勤';
+        byId('wardrobeItemSeason').value = item.season || '四季';
+        byId('wardrobeItemImage').value = '';
+        byId('wardrobeItemImage').dataset.data = item.image || '';
+        byId('wardrobeAddModalTitle').textContent = '编辑衣物';
+        byId('wardrobeAddForm').dataset.editCategory = item.category || '';
+        renderWardrobeCategoryControls();
+        byId('wardrobeItemCategory').value = item.category || '';
+        byId('wardrobeDetailModal').classList.remove('open'); byId('wardrobeAddModal').classList.add('open');
+      }
+    });
     byId('wardrobeWearForm').addEventListener('submit', e => { e.preventDefault(); const id = byId('wardrobeWearItem').value; const item = wardrobeItems().find(entry => entry.id === id); if (!item) return; item.wearCount = Number(item.wearCount || 0) + 1; item.lastWorn = todayISO(); state.wardrobeWearLogs = [...(state.wardrobeWearLogs || []), { id: uid(), itemIds: [id], date: todayISO(), feeling: byId('wardrobeWearFeeling').value }]; byId('wardrobeWearModal').classList.remove('open'); saveState(); wardrobeSwitchTab('overview'); showToast(`已记录：${item.name}`); });
     document.querySelectorAll('[data-wardrobe-create-outfit]').forEach(button => button.addEventListener('click', () => { renderWardrobeSelects(); byId('wardrobeOutfitForm').reset(); byId('wardrobeOutfitModal').classList.add('open'); }));
     byId('wardrobeOutfitForm').addEventListener('submit', e => { e.preventDefault(); const itemIds = ['wardrobeOutfitTop','wardrobeOutfitBottom','wardrobeOutfitThird'].map(id => byId(id).value).filter(Boolean); if (itemIds.length < 2) { showToast('至少选择两件衣物'); return; } state.wardrobeOutfits = [...(state.wardrobeOutfits || []), { id: uid(), name: byId('wardrobeOutfitName').value.trim(), itemIds, tag: '我的新搭配', uses: 0 }]; byId('wardrobeOutfitModal').classList.remove('open'); saveState(); wardrobeSwitchTab('outfits'); showToast('穿搭已保存'); });
     byId('wardrobeDeclutterList').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-decision]'); if (!button) return; const item = wardrobeItems().find(entry => entry.id === button.dataset.wardrobeId); if (!item) return; item.status = button.dataset.wardrobeDecision === 'remove' ? 'removed' : button.dataset.wardrobeDecision; saveState(); renderWardrobe(); showToast(button.dataset.wardrobeDecision === 'remove' ? `${item.name} 已移出衣橱` : `${item.name} 已标记为${button.dataset.wardrobeDecision === 'keep' ? '保留' : '观察'}`); });
     byId('wardrobeItemImage').addEventListener('change', async e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { byId('wardrobeItemImage').dataset.data = reader.result; showToast('照片已读取'); }; reader.readAsDataURL(file); });
-    byId('wardrobeAddForm').addEventListener('submit', e => { e.preventDefault(); const custom = byId('wardrobeCustomCategory').value.trim(); const category = custom || byId('wardrobeItemCategory').value; if (!category) { showToast('请选择或填写衣物类别'); return; } if (custom) state.wardrobeCategories = [...new Set([...wardrobeCategories(), custom])]; const item = { id: uid(), name: byId('wardrobeItemName').value.trim(), category, color: byId('wardrobeItemColor').value.trim(), style: byId('wardrobeItemStyle').value, season: byId('wardrobeItemSeason').value, wearCount: 0, lastWorn: '', status: 'keep', image: byId('wardrobeItemImage').dataset.data || '' }; state.wardrobe = [...(state.wardrobe || []), item]; byId('wardrobeAddModal').classList.remove('open'); saveState(); wardrobeSwitchTab('items'); showToast('衣物已加入我的衣橱'); });
+    byId('wardrobeAddForm').addEventListener('submit', e => { e.preventDefault(); const category = byId('wardrobeItemCategory').value; if (!category) { showToast('请选择衣物类别'); return; } const values = { name: byId('wardrobeItemName').value.trim(), category, color: byId('wardrobeItemColor').value.trim(), style: byId('wardrobeItemStyle').value, season: byId('wardrobeItemSeason').value, image: byId('wardrobeItemImage').dataset.data || '' }; const existing = wardrobeEditingId && wardrobeItems().find(item => item.id === wardrobeEditingId); if (existing) { Object.assign(existing, values); showToast('衣物已更新'); } else { state.wardrobe = [...(state.wardrobe || []), { id: uid(), ...values, wearCount: 0, lastWorn: '', status: 'keep' }]; showToast('衣物已加入我的衣橱'); } wardrobeEditingId = ''; byId('wardrobeAddForm').dataset.editCategory = ''; byId('wardrobeAddModalTitle').textContent = '添加衣物'; byId('wardrobeAddModal').classList.remove('open'); saveState(); wardrobeSwitchTab('items'); });
     byId('wardrobeShoppingNote').addEventListener('click', () => wardrobeSwitchTab('items'));
     document.querySelector('[data-wardrobe-show-similar]').addEventListener('click', () => { wardrobeFilter = '上装'; document.querySelectorAll('[data-wardrobe-filter]').forEach(item => item.classList.toggle('active', item.dataset.wardrobeFilter === wardrobeFilter)); wardrobeSwitchTab('items'); });
 
