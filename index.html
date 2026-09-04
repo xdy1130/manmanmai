@@ -1262,6 +1262,24 @@
     let wardrobeFilter = '全部';
     let wardrobeEditingId = '';
     let wardrobeSearch = '';
+    let wardrobeImageCompression = Promise.resolve('');
+
+    function compressWardrobeImage(dataUrl, maxSide = 960, quality = 0.76) {
+      return new Promise(resolve => {
+        if (!dataUrl || !String(dataUrl).startsWith('data:image/')) return resolve(dataUrl || '');
+        const image = new Image();
+        image.onload = () => {
+          const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+          canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        image.onerror = () => resolve(dataUrl);
+        image.src = dataUrl;
+      });
+    }
 
     function normalizeInventoryCategoryName(category) {
       const name = String(category || '').trim();
@@ -1647,6 +1665,9 @@
         Object.keys(snapshot.inventoryCategoryParents || {}).length ||
         JSON.stringify(snapshot.inventoryCategoryOrder || []) !== JSON.stringify(defaultState.inventoryCategoryOrder) ||
         (snapshot.inventoryUnits || []).some(unit => !defaultInventoryUnits.includes(unit))
+        || (snapshot.wardrobe || []).some(item => !String(item?.id || '').startsWith('wardrobe-'))
+        || (snapshot.wardrobeOutfits || []).length
+        || (snapshot.wardrobeCategories || []).some(category => !(defaultState.wardrobeCategories || []).includes(category))
       );
     }
     async function fetchCloudState() {
@@ -1692,7 +1713,8 @@
     function queueCloudSave() {
       if (!hasSyncConfig() || !authUser || isApplyingCloudState) return;
       clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => pushCloudState().catch(error => setSyncStatus(error.message)), 500);
+      setSyncStatus('正在同步最新衣橱数据…');
+      syncTimer = setTimeout(() => pushCloudState().catch(error => setSyncStatus(`同步失败：${error.message}`)), 180);
     }
     async function runAutoSync() {
       if (!hasSyncConfig() || !authUser || isApplyingCloudState || isAutoSyncing) return;
@@ -3026,7 +3048,7 @@
     document.querySelector('[data-wardrobe-inventory-entry]').addEventListener('click', () => { goToPage('wardrobe'); wardrobeSwitchTab('items'); });
     document.querySelector('[data-wardrobe-start-inventory]').addEventListener('click', () => wardrobeSwitchTab('items'));
     document.querySelector('[data-wardrobe-start-outfits]').addEventListener('click', () => wardrobeSwitchTab('outfits'));
-    const openWardrobeAdd = () => { wardrobeEditingId = ''; byId('wardrobeAddForm').reset(); byId('wardrobeItemImage').dataset.data = ''; byId('wardrobeAddModalTitle').textContent = '添加衣物'; renderWardrobeCategoryControls(); byId('wardrobeAddModal').classList.add('open'); };
+    const openWardrobeAdd = () => { wardrobeEditingId = ''; wardrobeImageCompression = Promise.resolve(''); byId('wardrobeAddForm').reset(); byId('wardrobeItemImage').dataset.data = ''; byId('wardrobeAddModalTitle').textContent = '添加衣物'; renderWardrobeCategoryControls(); byId('wardrobeAddModal').classList.add('open'); };
     document.querySelectorAll('[data-wardrobe-open-add]').forEach(button => button.addEventListener('click', openWardrobeAdd));
     document.querySelectorAll('[data-wardrobe-close]').forEach(button => button.addEventListener('click', () => button.closest('.modal')?.classList.remove('open')));
     byId('wardrobeAddModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
@@ -3066,6 +3088,7 @@
         byId('wardrobeItemSeason').value = item.season || '四季';
         byId('wardrobeItemImage').value = '';
         byId('wardrobeItemImage').dataset.data = item.image || '';
+        wardrobeImageCompression = Promise.resolve(item.image || '');
         byId('wardrobeAddModalTitle').textContent = '编辑衣物';
         byId('wardrobeAddForm').dataset.editCategory = item.category || '';
         renderWardrobeCategoryControls();
@@ -3075,10 +3098,41 @@
     });
     byId('wardrobeWearForm').addEventListener('submit', e => { e.preventDefault(); const id = byId('wardrobeWearItem').value; const item = wardrobeItems().find(entry => entry.id === id); if (!item) return; item.wearCount = Number(item.wearCount || 0) + 1; item.lastWorn = todayISO(); state.wardrobeWearLogs = [...(state.wardrobeWearLogs || []), { id: uid(), itemIds: [id], date: todayISO(), feeling: byId('wardrobeWearFeeling').value }]; byId('wardrobeWearModal').classList.remove('open'); saveState(); queueCloudSave(); wardrobeSwitchTab('overview'); showToast(`已记录：${item.name}`); });
     document.querySelectorAll('[data-wardrobe-create-outfit]').forEach(button => button.addEventListener('click', () => { renderWardrobeSelects(); byId('wardrobeOutfitForm').reset(); byId('wardrobeOutfitModal').classList.add('open'); }));
-    byId('wardrobeOutfitForm').addEventListener('submit', e => { e.preventDefault(); const itemIds = ['wardrobeOutfitTop','wardrobeOutfitBottom','wardrobeOutfitThird'].map(id => byId(id).value).filter(Boolean); if (itemIds.length < 2) { showToast('至少选择两件衣物'); return; } state.wardrobeOutfits = [...(state.wardrobeOutfits || []), { id: uid(), name: byId('wardrobeOutfitName').value.trim(), itemIds, tag: '我的新搭配', uses: 0 }]; byId('wardrobeOutfitModal').classList.remove('open'); saveState(); queueCloudSave(); wardrobeSwitchTab('outfits'); showToast('穿搭已保存'); });
+    byId('wardrobeOutfitForm').addEventListener('submit', e => { e.preventDefault(); const itemIds = ['wardrobeOutfitTop','wardrobeOutfitBottom','wardrobeOutfitThird'].map(id => byId(id).value).filter(Boolean); if (itemIds.length < 2) { showToast('至少选择两件衣物'); return; } const previousState = structuredClone(state); state.wardrobeOutfits = [...(state.wardrobeOutfits || []), { id: uid(), name: byId('wardrobeOutfitName').value.trim(), itemIds, tag: '我的新搭配', uses: 0 }]; if (!saveState()) { state = previousState; renderAll(); showToast('穿搭保存失败，请稍后重试'); return; } byId('wardrobeOutfitModal').classList.remove('open'); wardrobeSwitchTab('outfits'); showToast('穿搭已保存，正在同步'); });
     byId('wardrobeDeclutterList').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-decision]'); if (!button) return; const item = wardrobeItems().find(entry => entry.id === button.dataset.wardrobeId); if (!item) return; item.status = button.dataset.wardrobeDecision === 'remove' ? 'removed' : button.dataset.wardrobeDecision; saveState(); queueCloudSave(); renderWardrobe(); showToast(button.dataset.wardrobeDecision === 'remove' ? `${item.name} 已移出衣橱` : `${item.name} 已标记为${button.dataset.wardrobeDecision === 'keep' ? '保留' : '观察'}`); });
-    byId('wardrobeItemImage').addEventListener('change', async e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { byId('wardrobeItemImage').dataset.data = reader.result; showToast('照片已读取'); }; reader.readAsDataURL(file); });
-    byId('wardrobeAddForm').addEventListener('submit', e => { e.preventDefault(); const category = byId('wardrobeItemCategory').value; if (!category) { showToast('请选择衣物类别'); return; } const values = { name: byId('wardrobeItemName').value.trim(), category, color: byId('wardrobeItemColor').value.trim(), style: byId('wardrobeItemStyle').value, season: byId('wardrobeItemSeason').value, image: byId('wardrobeItemImage').dataset.data || '' }; const existing = wardrobeEditingId && wardrobeItems().find(item => item.id === wardrobeEditingId); if (existing) { Object.assign(existing, values); showToast('衣物已更新'); } else { state.wardrobe = [...(state.wardrobe || []), { id: uid(), ...values, wearCount: 0, lastWorn: '', status: 'keep' }]; showToast('衣物已加入我的衣橱'); } wardrobeEditingId = ''; byId('wardrobeAddForm').dataset.editCategory = ''; byId('wardrobeAddModalTitle').textContent = '添加衣物'; byId('wardrobeAddModal').classList.remove('open'); saveState(); queueCloudSave(); wardrobeSwitchTab('items'); });
+    byId('wardrobeItemImage').addEventListener('change', e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const raw = reader.result; byId('wardrobeItemImage').dataset.data = raw; wardrobeImageCompression = compressWardrobeImage(raw); showToast('照片已读取并优化'); }; reader.readAsDataURL(file); });
+    byId('wardrobeAddForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const category = byId('wardrobeItemCategory').value;
+      if (!category) { showToast('请选择衣物类别'); return; }
+      const previousState = structuredClone(state);
+      const image = await wardrobeImageCompression || byId('wardrobeItemImage').dataset.data || '';
+      const values = { name: byId('wardrobeItemName').value.trim(), category, color: byId('wardrobeItemColor').value.trim(), style: byId('wardrobeItemStyle').value, season: byId('wardrobeItemSeason').value, image };
+      const existingId = wardrobeEditingId;
+      const applyValues = nextValues => {
+        const current = existingId && wardrobeItems().find(item => item.id === existingId);
+        if (current) Object.assign(current, nextValues);
+        else state.wardrobe = [...(state.wardrobe || []), { id: uid(), ...nextValues, wearCount: 0, lastWorn: '', status: 'keep' }];
+      };
+      applyValues(values);
+      let saved = saveState();
+      let imageSaved = saved;
+      if (!saved && image) {
+        state = previousState;
+        applyValues({ ...values, image: '' });
+        saved = saveState();
+        imageSaved = false;
+        if (saved) showToast('衣物已保存，但照片因本机空间不足未保存');
+      }
+      if (!saved) { state = previousState; renderAll(); showToast('保存失败，请稍后重试'); return; }
+      wardrobeEditingId = '';
+      byId('wardrobeAddForm').dataset.editCategory = '';
+      byId('wardrobeAddModalTitle').textContent = '添加衣物';
+      byId('wardrobeAddModal').classList.remove('open');
+      wardrobeImageCompression = Promise.resolve('');
+      wardrobeSwitchTab('items');
+      if (imageSaved) showToast(existingId ? '衣物已更新，正在同步' : '衣物已加入我的衣橱，正在同步');
+    });
     byId('wardrobeShoppingNote').addEventListener('click', () => wardrobeSwitchTab('items'));
     document.querySelector('[data-wardrobe-show-similar]').addEventListener('click', () => { wardrobeFilter = '上装'; document.querySelectorAll('[data-wardrobe-filter]').forEach(item => item.classList.toggle('active', item.dataset.wardrobeFilter === wardrobeFilter)); wardrobeSwitchTab('items'); });
 
