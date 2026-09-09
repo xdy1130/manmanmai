@@ -3276,7 +3276,7 @@
       const kind = byId('expenseKind').value;
       const rawAmount = Math.abs(Number(byId('expenseAmount').value));
       state.expenses.push({ id: uid(), name: byId('expenseName').value.trim() || (kind === 'refund' ? '退款' : '日常消费'), amount: kind === 'refund' ? -rawAmount : rawAmount, kind, platform: byId('expensePlatform').value, category: byId('expenseCategory').value, date: byId('expenseDate').value, fromLive: false });
-      e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseModal').classList.remove('open'); saveState(); showToast(kind === 'refund' ? '退款已记录' : '消费已记录');
+      e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseModal').classList.remove('open'); saveState(); renderAll(); showToast(kind === 'refund' ? '退款已记录' : '消费已记录');
     });
     function openInventoryFromExpense(expense) {
       if (!expense || Number(expense.amount) <= 0) return;
@@ -3288,7 +3288,7 @@
       const add = e.target.closest('[data-add-to-inventory]');
       if (add) openInventoryFromExpense(state.expenses.find(item => item.id === add.dataset.addToInventory));
       const del = e.target.closest('[data-delete-expense]');
-      if (del && confirm('删除这笔消费？')) { state.expenses = state.expenses.filter(x => x.id !== del.dataset.deleteExpense); saveState(); }
+      if (del && confirm('删除这笔消费？')) { state.expenses = state.expenses.filter(x => x.id !== del.dataset.deleteExpense); saveState(); renderAll(); showToast('消费记录已删除'); }
     }));
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; renderHistory(); }));
     byId('historyDate').addEventListener('change', renderHistory);
