@@ -1149,7 +1149,7 @@
           <div class="stack" id="hostList"></div>
         </section>
         <section class="stack" data-settings-section="data" hidden>
-          <div class="card stack"><p class="muted small">导出一份完整备份，换设备或误删时可恢复。</p><div class="btn-row"><button class="btn" id="exportBtn"><i data-lucide="file-down"></i>导出备份</button><button class="btn" id="importBtn"><i data-lucide="file-up"></i>导入备份</button></div><input id="importFile" type="file" accept="application/json" hidden></div>
+          <div class="card stack"><p class="muted small">系统会在本机自动保留最近 30 个版本，也可以导出完整备份。</p><div class="btn-row"><button class="btn" id="restoreAutoBackupBtn"><i data-lucide="history"></i>恢复最近版本</button><button class="btn" id="exportBtn"><i data-lucide="file-down"></i>导出备份</button><button class="btn" id="importBtn"><i data-lucide="file-up"></i>导入备份</button></div><input id="importFile" type="file" accept="application/json" hidden></div>
         </section>
         <section class="stack" data-settings-section="sync" hidden>
           <section class="card stack sync-card" id="syncPanel"><div class="sync-top"><div class="sync-account"><span class="muted small">当前账号</span><strong id="syncAccount">未登录</strong></div><button class="btn" id="openAuthDrawerBtn" type="button"><i data-lucide="user-circle"></i>登录 / 注册</button></div><p class="muted small">登录后，保存的数据会自动同步到同一账号的其他设备。</p><div class="sync-status"><span id="syncStatus">未配置同步</span><strong id="syncUpdatedAt"></strong></div><button class="btn btn-danger" id="signOutBtn" type="button" hidden><i data-lucide="log-out"></i>退出当前账号</button></section>
@@ -1166,6 +1166,11 @@
     const ACCOUNT_SCOPE_MARKER = 'slow-buy-account-scope-v1';
     const LEGACY_STATE_KEY = 'slow-buy-legacy-before-account-v1';
     const SYNC_CONFIG_KEY = 'slow-buy-sync-config-v1';
+    const IDB_NAME = 'slow-buy-offline-v1';
+    const IDB_VERSION = 1;
+    const DEVICE_ID_KEY = 'slow-buy-device-id-v1';
+    const DEVICE_ID = localStorage.getItem(DEVICE_ID_KEY) || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(DEVICE_ID_KEY, DEVICE_ID);
     const SUPABASE_PROJECT_URL = 'https://iwqyhzfohjmtscpzenun.supabase.co';
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aST__7_-Gcj6Wi5ZCP0Pxw_fMbWYxp0';
     const CHAT_WELCOME = '把消费或退款直接告诉我。例如：“昨天在抖音买了身体乳114元”。';
@@ -1195,6 +1200,55 @@
     const todayISO = () => dateISO();
     const money = n => `¥${Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
     const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    let offlineDbPromise = null;
+    function openOfflineDb() {
+      if (!('indexedDB' in window)) return Promise.resolve(null);
+      if (!offlineDbPromise) offlineDbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('states')) db.createObjectStore('states');
+          if (!db.objectStoreNames.contains('backups')) db.createObjectStore('backups');
+          if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      }).catch(() => null);
+      return offlineDbPromise;
+    }
+    async function offlinePut(storeName, key, value) {
+      const db = await openOfflineDb(); if (!db) return;
+      await new Promise(resolve => { const tx = db.transaction(storeName, 'readwrite'); tx.objectStore(storeName).put(value, key); tx.oncomplete = resolve; tx.onerror = resolve; });
+    }
+    async function offlineGet(storeName, key) {
+      const db = await openOfflineDb(); if (!db) return null;
+      return new Promise(resolve => { const tx = db.transaction(storeName, 'readonly'); const request = tx.objectStore(storeName).get(key); request.onsuccess = () => resolve(request.result || null); request.onerror = () => resolve(null); });
+    }
+    async function clearOfflineOutbox(storeKey) {
+      const db = await openOfflineDb(); if (!db) return;
+      await new Promise(resolve => { const tx = db.transaction('outbox', 'readwrite'); const store = tx.objectStore('outbox'); const request = store.openCursor(); request.onsuccess = () => { const cursor = request.result; if (!cursor) return resolve(); if (cursor.value?.storeKey === storeKey) cursor.delete(); cursor.continue(); }; request.onerror = resolve; });
+    }
+    async function latestOfflineBackup(storeKey) {
+      const db = await openOfflineDb(); if (!db) return null;
+      return new Promise(resolve => { const tx = db.transaction('backups', 'readonly'); const store = tx.objectStore('backups'); const request = store.getAllKeys(); request.onsuccess = () => { const keys = request.result.filter(item => String(item).startsWith(`${storeKey}:`)).sort(); const key = keys[keys.length - 1]; if (!key) return resolve(null); const read = store.get(key); read.onsuccess = () => resolve(read.result || null); read.onerror = () => resolve(null); }; request.onerror = () => resolve(null); });
+    }
+    function queueOfflineSnapshot(storeKey, snapshot) {
+      const compact = { ...snapshot, wardrobe: (snapshot.wardrobe || []).map(item => ({ ...item, image: '' })) };
+      offlinePut('states', storeKey, snapshot);
+      const backupKey = `${storeKey}:${Date.now()}`;
+      offlinePut('backups', backupKey, compact);
+      openOfflineDb().then(db => { if (!db) return; const tx = db.transaction('backups', 'readwrite'); const store = tx.objectStore('backups'); const request = store.getAllKeys(); request.onsuccess = () => request.result.filter(key => String(key).startsWith(`${storeKey}:`)).sort().slice(0, -30).forEach(key => store.delete(key)); });
+      openOfflineDb().then(db => { if (!db) return; const tx = db.transaction('outbox', 'readwrite'); tx.objectStore('outbox').add({ storeKey, changedAt: Date.now(), domains: ['inventory', 'wardrobe', 'outfits', 'expenses'] }); });
+    }
+    async function hydrateOfflineState(storeKey) {
+      const saved = await offlineGet('states', storeKey);
+      if (!saved || storeKey !== currentStoreKey) return;
+      const merged = mergeState(state, saved);
+      if (JSON.stringify(merged) === JSON.stringify(state)) return;
+      state = merged; persistState(); renderAll();
+      if (authUser) queueCloudSave();
+      setSyncStatus(`已恢复本机离线数据（${wardrobeItems().length} 件衣物）`);
+    }
     const defaultState = {
       monthlyBudget: 2000,
       hosts: [{ id: 'host-default', name: '我喜欢的主播', perLiveBudget: 500, funBudget: 200, stockCap: 6, sessionSpent: 0, sessionDate: todayISO() }],
@@ -1426,6 +1480,7 @@
     function persistState() {
       try {
         localStorage.setItem(currentStoreKey, JSON.stringify(state));
+        queueOfflineSnapshot(currentStoreKey, structuredClone(state));
         lastPersistError = null;
         return true;
       } catch (error) {
@@ -1455,6 +1510,7 @@
       }
       currentStoreKey = nextKey;
       state = loadState(nextKey);
+      hydrateOfflineState(nextKey);
       inventoryImageLoadKey = '';
       inventoryImageCache = new Map();
       authUser = user;
@@ -1463,6 +1519,7 @@
       if (currentStoreKey === STORE_KEY && !localStorage.getItem(ACCOUNT_SCOPE_MARKER) && hasPersonalData(state)) localStorage.setItem(LEGACY_STATE_KEY, JSON.stringify(state));
       currentStoreKey = STORE_KEY;
       state = loadState(STORE_KEY);
+      hydrateOfflineState(STORE_KEY);
       inventoryImageLoadKey = '';
       inventoryImageCache = new Map();
       authUser = null;
@@ -1684,8 +1741,10 @@
       const now = new Date().toISOString();
       const { error } = await getSupabaseClient().from('app_state').upsert({ id: user.id, user_id: user.id, data: state, updated_at: now });
       if (error) throw new Error(`云端保存失败：${error.message}`);
+      await getSupabaseClient().from('app_state_events').insert({ user_id: user.id, device_id: DEVICE_ID, changed_at: now, domains: ['inventory', 'wardrobe', 'outfits', 'expenses'], state_version: now });
       syncConfig.lastSyncedAt = now;
       saveSyncConfig();
+      clearOfflineOutbox(currentStoreKey);
       setSyncStatus(`已同步到云端（${wardrobeItems().length} 件衣物）`, now);
       if (showMessage) showToast('已推送到云端');
     }
@@ -3248,6 +3307,13 @@
     byId('exportBtn').addEventListener('click', () => {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `慢慢买备份-${todayISO()}.json`; a.click(); URL.revokeObjectURL(url);
     });
+    byId('restoreAutoBackupBtn').addEventListener('click', async () => {
+      const backup = await latestOfflineBackup(currentStoreKey);
+      if (!backup) { showToast('当前还没有可恢复的自动备份'); return; }
+      state = mergeState(state, backup);
+      saveState();
+      showToast(`已恢复并合并最近版本，共 ${wardrobeItems().length} 件衣物`);
+    });
     byId('importBtn').addEventListener('click', () => byId('importFile').click());
     byId('importFile').addEventListener('change', async e => { try { const data = JSON.parse(await e.target.files[0].text()); if (!data.hosts || !data.expenses || !data.inventory) throw new Error(); localStorage.setItem(currentStoreKey, JSON.stringify(data)); state = loadState(currentStoreKey); saveState(); showToast('备份已恢复'); } catch { alert('这个备份文件无法读取'); } e.target.value = ''; });
     byId('openAuthDrawerBtn').addEventListener('click', openAuthDrawer);
@@ -3333,6 +3399,7 @@
     byId('expenseDate').value = todayISO();
     byId('historyDate').value = todayISO();
     renderAll();
+    hydrateOfflineState(currentStoreKey);
     if (window.lucide) iconRefresh();
     if (hasSyncConfig() && localStorage.getItem('slow-buy-account-scope-v1')) refreshAuthUser().then(user => {
       if (!user) { activateGuestState(); renderAll(); }
