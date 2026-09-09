@@ -1686,7 +1686,7 @@
       if (error) throw new Error(`云端保存失败：${error.message}`);
       syncConfig.lastSyncedAt = now;
       saveSyncConfig();
-      setSyncStatus('已同步到云端', now);
+      setSyncStatus(`已同步到云端（${wardrobeItems().length} 件衣物）`, now);
       if (showMessage) showToast('已推送到云端');
     }
     async function pullCloudState(showMessage = false) {
@@ -1707,14 +1707,21 @@
       isApplyingCloudState = false;
       renderAll();
       await pushCloudState(false);
-      setSyncStatus('已从云端合并');
+      setSyncStatus(`已从云端合并（${wardrobeItems().length} 件衣物）`);
       if (showMessage) showToast('已从云端拉取');
     }
     function queueCloudSave() {
       if (!hasSyncConfig() || !authUser || isApplyingCloudState) return;
       clearTimeout(syncTimer);
       setSyncStatus('正在同步最新衣橱数据…');
-      syncTimer = setTimeout(() => pushCloudState().catch(error => setSyncStatus(`同步失败：${error.message}`)), 180);
+      syncTimer = setTimeout(async () => {
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try { await pushCloudState(); return; } catch (error) {
+            if (attempt === 2) setSyncStatus(`同步失败：${error.message}，请保持页面打开后重试`);
+            else await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+          }
+        }
+      }, 180);
     }
     async function runAutoSync() {
       if (!hasSyncConfig() || !authUser || isApplyingCloudState || isAutoSyncing) return;
