@@ -1089,6 +1089,29 @@
     </form>
   </div>
 
+  <div class="modal" id="editRefundModal" role="dialog" aria-modal="true" aria-labelledby="editRefundModalTitle">
+    <form class="modal-sheet form-grid" id="editRefundForm">
+      <div class="modal-head span-2"><h2 id="editRefundModalTitle">编辑退款</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <input id="editRefundId" type="hidden">
+      <p class="field-help span-2" id="editRefundPurchase"></p>
+      <label>退款数量<input id="editRefundQty" type="number" min="0" max="100000" step="0.1" required></label>
+      <label>退款金额（元）<input id="editRefundAmount" type="number" min="0.01" max="100000000" step="0.01" required></label>
+      <p class="field-help span-2" id="editRefundHint"></p>
+      <button class="btn span-1" type="button" data-close>取消</button><button class="btn btn-primary span-1" type="submit">保存退款</button>
+    </form>
+  </div>
+
+  <div class="modal" id="revokeRefundModal" role="dialog" aria-modal="true" aria-labelledby="revokeRefundModalTitle">
+    <form class="modal-sheet form-grid" id="revokeRefundForm">
+      <div class="modal-head span-2"><h2 id="revokeRefundModalTitle">撤销退货</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
+      <input id="revokeRefundId" type="hidden">
+      <p class="field-help span-2" id="revokeRefundName"></p>
+      <label class="span-2">恢复库存数量<input id="revokeRefundQty" type="number" min="0" max="100000" step="0.1" required></label>
+      <p class="field-help span-2">请输入要恢复的库存数量。数量为 0 时只撤销退款金额和退货状态。</p>
+      <button class="btn span-1" type="button" data-close>取消</button><button class="btn btn-primary span-1" type="submit">确认撤销</button>
+    </form>
+  </div>
+
   <div class="modal" id="expenseModal" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle">
     <form class="modal-sheet form-grid" id="expenseForm">
       <div class="modal-head span-2"><h2 id="expenseModalTitle">快速记账</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
@@ -2370,11 +2393,15 @@
       const isRefund = Number(e.amount) < 0 || e.kind === 'refund';
       const linkedInventory = state.inventory.some(item => item.sourceExpenseId === e.id);
       const sourceDeleted = linkedInventory && state.expenseTombstones && state.expenseTombstones[e.id];
-      const inventoryAction = !isRefund && e.name && e.name !== '日常消费' ? `<button class="btn" data-add-to-inventory="${e.id}" type="button">${linkedInventory ? '已入库存' : '加入库存'}</button>` : '';
       const refunded = Boolean(e.returned) || state.expenses.some(item => item.sourceExpenseId === e.id && (Number(item.amount) < 0 || item.kind === 'refund'));
+      const inventoryAction = !isRefund && !refunded && e.name && e.name !== '日常消费' ? `<button class="btn" data-add-to-inventory="${e.id}" type="button">${linkedInventory ? '已入库存' : '加入库存'}</button>` : '';
+      const linkedRefund = isRefund && e.sourceExpenseId ? e : null;
+      const refundForPurchase = !isRefund ? state.expenses.find(item => item.sourceExpenseId === e.id && (Number(item.amount) < 0 || item.kind === 'refund')) : null;
       const returnAction = !isRefund && !refunded ? `<button class="btn" data-return-expense="${e.id}" type="button">退货</button>` : '';
+      const refundActions = refundForPurchase ? `<button class="btn" data-edit-refund="${refundForPurchase.id}" type="button">编辑退款</button><button class="btn" data-undo-refund="${refundForPurchase.id}" type="button">撤销退货</button>` : '';
       const deleteAction = canDelete ? `<button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button>` : '';
-      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}${!isRefund && refunded ? '<span class="pill">已退货</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}${sourceDeleted ? ' · 来源账单已删除' : ''}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}<div class="expense-actions">${inventoryAction}${returnAction}${deleteAction}</div></div></div>`;
+      const refundMeta = !isRefund && refundForPurchase ? ` · 已退款 ${money(Math.abs(refundForPurchase.amount))}${refundForPurchase.qty != null ? ` · ${refundForPurchase.qty}件` : ''} · 净支出 ${money(Number(e.amount) + Number(refundForPurchase.amount))}` : '';
+      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}${!isRefund && refunded ? '<span class="pill">已退货</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}${sourceDeleted ? ' · 来源账单已删除' : ''}${refundMeta}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}<div class="expense-actions">${inventoryAction}${returnAction}${refundActions}${deleteAction}</div></div></div>`;
     }
     function renderExpenses() {
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
@@ -3319,7 +3346,7 @@
     byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
     function openReturnFromExpense(expense) { if (!expense || Number(expense.amount) <= 0 || expense.returned || state.expenses.some(item => item.sourceExpenseId === expense.id && (Number(item.amount) < 0 || item.kind === 'refund'))) { showToast('这笔消费已经记录退款，不能重复退货'); return; } const item = state.inventory.find(x => x.sourceExpenseId === expense.id); byId('returnExpenseId').value = expense.id; byId('returnInventoryId').value = item?.id || ''; byId('returnInventoryModalTitle').textContent = '从账单办理退货'; byId('returnInventoryName').textContent = item ? `${expense.name || '消费'} · 当前库存 ${item.qty} ${item.unit || '件'}` : `${expense.name || '消费'} · 未关联库存`; byId('returnInventoryQty').max = item ? Math.max(0, Number(item.qty)) : 1; byId('returnInventoryQty').value = item ? Number(item.qty) : 1; byId('returnInventoryQty').disabled = !item; byId('returnInventoryAmount').value = Number(expense.amount).toFixed(2); byId('returnInventoryNote').value = ''; byId('returnInventoryModal').classList.add('open'); setTimeout(() => byId('returnInventoryAmount').focus(), 50); }
     function sourceExpenseAmount(item) { const source = state.expenses.find(x => x.id === item?.sourceExpenseId); return source && Number(source.amount) > 0 ? Number(source.amount).toFixed(2) : ''; }
-    byId('returnInventoryForm').addEventListener('submit', e => { e.preventDefault(); const submit = e.submitter || e.querySelector('button[type=submit]'); if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; } const expense = state.expenses.find(x => x.id === byId('returnExpenseId').value); const item = state.inventory.find(x => x.id === byId('returnInventoryId').value); const qty = Number(byId('returnInventoryQty').value); const amount = Number(byId('returnInventoryAmount').value); const alreadyRefunded = expense && (expense.returned || state.expenses.some(x => x.sourceExpenseId === expense.id && (Number(x.amount) < 0 || x.kind === 'refund'))); if (alreadyRefunded) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('这笔消费已经记录退款，不能重复退货'); return; } if (!expense || !Number.isFinite(amount) || amount <= 0 || amount > Number(expense.amount) || (item && (!Number.isFinite(qty) || qty <= 0 || qty > Number(item.qty)))) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('请检查退货数量和退款金额'); return; } if (item) item.qty = Math.max(0, Number(item.qty) - qty); expense.returned = true; expense.returnedAt = todayISO(); state.expenses.push({ id: uid(), name: `${expense.name || '消费'}退货${byId('returnInventoryNote').value.trim() ? `（${byId('returnInventoryNote').value.trim()}）` : ''}`, amount: -amount, kind: 'refund', platform: expense.platform || '其他', category: expense.category || '其他', date: expense.date, fromInventory: Boolean(item), sourceInventoryId: item?.id || '', sourceExpenseId: expense.id }); saveState(); byId('returnInventoryModal').classList.remove('open'); renderAll(); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast(item ? '已退货、扣减库存并记录退款' : '已记录退款'); });
+    byId('returnInventoryForm').addEventListener('submit', e => { e.preventDefault(); const submit = e.submitter || e.querySelector('button[type=submit]'); if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; } const expense = state.expenses.find(x => x.id === byId('returnExpenseId').value); const item = state.inventory.find(x => x.id === byId('returnInventoryId').value); const qty = Number(byId('returnInventoryQty').value); const amount = Number(byId('returnInventoryAmount').value); const alreadyRefunded = expense && (expense.returned || state.expenses.some(x => x.sourceExpenseId === expense.id && (Number(x.amount) < 0 || x.kind === 'refund'))); const priorRefund = expense ? state.expenses.filter(x => x.sourceExpenseId === expense.id && (Number(x.amount) < 0 || x.kind === 'refund')).reduce((sum, x) => sum + Math.abs(Number(x.amount)), 0) : 0; if (alreadyRefunded) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('这笔消费已经记录退款，不能重复退货'); return; } if (!expense || !Number.isFinite(amount) || amount <= 0 || amount > Number(expense.amount) - priorRefund || (!Number.isFinite(qty) || qty <= 0)) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('请检查退货数量和退款金额'); return; } const deductedQty = item ? Math.min(Number(item.qty || 0), qty) : 0; if (item) item.qty = Math.max(0, Number(item.qty) - deductedQty); expense.returned = amount + priorRefund >= Number(expense.amount); expense.returnedAt = todayISO(); state.expenses.push({ id: uid(), name: `${expense.name || '消费'}退货${byId('returnInventoryNote').value.trim() ? `（${byId('returnInventoryNote').value.trim()}）` : ''}`, amount: -amount, kind: 'refund', qty: deductedQty, requestedQty: qty, platform: expense.platform || '其他', category: expense.category || '其他', date: expense.date, fromInventory: Boolean(item), sourceInventoryId: item?.id || '', sourceExpenseId: expense.id }); saveState(); byId('returnInventoryModal').classList.remove('open'); renderAll(); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast(item ? '已退货、扣减库存并记录退款' : '已记录退款'); });
     byId('expenseKind').addEventListener('change', () => { const refund = byId('expenseKind').value === 'refund'; const box = byId('expenseAddToInventory'); box.disabled = refund; if (refund) { box.checked = false; byId('expenseInventoryHint').textContent = '退款不能加入库存'; } else byId('expenseInventoryHint').textContent = '保存后可补充数量和使用速度'; });
     byId('expenseForm').addEventListener('submit', e => {
       e.preventDefault();
@@ -3350,13 +3377,63 @@
       inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = expense.id; setInventoryImagePreview('');
       byId('inventoryForm').reset(); byId('inventoryAdvancedFields').open = false; byId('inventoryId').value = ''; byId('inventoryName').value = expense.name || ''; populateInventoryCategoryPicker(expense.category || '其他'); byId('inventoryStyle').value = ''; byId('inventoryPairing').value = ''; syncInventoryApparelFields(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryExpiry').value = ''; byId('inventoryModalTitle').textContent = '从账单加入库存'; byId('inventoryModal').classList.add('open');
     }
+    let editRefundAmountTouched = false;
+    let editRefundUnitPrice = 0;
+    function snapshotState() { return structuredClone(state); }
+    function restoreSnapshot(before) { state = before; renderAll(); }
+    function openEditRefund(refund) {
+      const purchase = state.expenses.find(x => x.id === refund?.sourceExpenseId); if (!refund || !purchase) return;
+      const item = refund.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
+      const qty = refund.qty == null ? 0 : Number(refund.qty);
+      editRefundUnitPrice = qty > 0 ? Math.abs(Number(refund.amount || 0)) / qty : 0; editRefundAmountTouched = false;
+      byId('editRefundId').value = refund.id; byId('editRefundPurchase').textContent = `原消费：${purchase.name || '消费'} · ${purchase.date} · ${money(purchase.amount)}`;
+      byId('editRefundQty').value = qty; byId('editRefundAmount').value = Math.abs(Number(refund.amount || 0)).toFixed(2);
+      byId('editRefundHint').textContent = item ? `关联库存：${item.name}，当前库存 ${item.qty}${item.unit || '件'}` : (refund.sourceInventoryId ? '原库存不存在，修改数量不会自动创建库存。' : '未关联库存，修改数量只更新退款记录。');
+      byId('editRefundModal').classList.add('open'); setTimeout(() => byId('editRefundQty').focus(), 50);
+    }
+    function openRevokeRefund(refund) {
+      if (!refund) return; const purchase = state.expenses.find(x => x.id === refund.sourceExpenseId);
+      const item = refund.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
+      byId('revokeRefundId').value = refund.id; byId('revokeRefundQty').value = refund.qty == null ? '' : Number(refund.qty);
+      byId('revokeRefundName').textContent = `${purchase?.name || '退款'} · ${item ? `库存 ${item.qty}${item.unit || '件'}` : (refund.sourceInventoryId ? '原库存不存在' : '未关联库存')}`;
+      byId('revokeRefundModal').classList.add('open'); setTimeout(() => byId('revokeRefundQty').focus(), 50);
+    }
+    function revokeRefund(refund, restoreQty) {
+      const before = snapshotState(); const purchase = state.expenses.find(x => x.id === refund?.sourceExpenseId);
+      const item = refund?.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
+      if (!refund || !Number.isFinite(restoreQty) || restoreQty < 0 || restoreQty > 100000) return false;
+      if (item && restoreQty > 0) item.qty = Number(item.qty || 0) + restoreQty;
+      if (purchase) purchase.returned = false;
+      state.expenses = state.expenses.filter(x => x.id !== refund.id);
+      if (!saveState()) { restoreSnapshot(before); return false; }
+      byId('revokeRefundModal').classList.remove('open'); showToast(refund.sourceInventoryId && !item ? '原库存不存在，已撤销退款和退货状态' : '已撤销退货并恢复库存'); return true;
+    }
+    byId('editRefundQty').addEventListener('input', () => { if (!editRefundAmountTouched && editRefundUnitPrice > 0) byId('editRefundAmount').value = (Number(byId('editRefundQty').value || 0) * editRefundUnitPrice).toFixed(2); });
+    byId('editRefundAmount').addEventListener('input', () => { editRefundAmountTouched = true; });
+    byId('editRefundForm').addEventListener('submit', e => {
+      e.preventDefault(); const submit = e.submitter; if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
+      const refund = state.expenses.find(x => x.id === byId('editRefundId').value); const purchase = state.expenses.find(x => x.id === refund?.sourceExpenseId); const item = refund?.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
+      const qtyText = byId('editRefundQty').value.trim(); const amountText = byId('editRefundAmount').value.trim(); const qty = Number(qtyText); const amount = Number(amountText); const oldQty = refund?.qty == null ? 0 : Number(refund.qty);
+      const invalid = !refund || !purchase || !/^\d+(?:\.\d{1,2})?$/.test(amountText) || !Number.isFinite(amount) || amount <= 0 || amount > Number(purchase.amount) || !/^\d+(?:\.\d{1,3})?$/.test(qtyText) || !Number.isFinite(qty) || qty < 0 || qty > 100000 || (item && qty - oldQty > Number(item.qty || 0));
+      if (invalid) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('退款数量或金额不合理'); return; }
+      const before = snapshotState(); if (item) item.qty = Math.max(0, Number(item.qty || 0) - (qty - oldQty)); refund.qty = qty; refund.amount = -amount; refund.date = purchase.date; refund.refundedAt = refund.refundedAt || todayISO(); purchase.returned = amount >= Number(purchase.amount);
+      if (!saveState()) { restoreSnapshot(before); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('保存失败，已保留表单内容'); return; }
+      byId('editRefundModal').classList.remove('open'); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('退款已更新');
+    });
+    byId('revokeRefundForm').addEventListener('submit', e => {
+      e.preventDefault(); const submit = e.submitter; if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
+      const refund = state.expenses.find(x => x.id === byId('revokeRefundId').value); const text = byId('revokeRefundQty').value.trim(); const qty = Number(text); if (!/^\d+(?:\.\d{1,3})?$/.test(text) || !Number.isFinite(qty) || qty < 0 || qty > 100000) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('恢复数量必须是大于等于 0 的有效数字'); return; }
+      if (!revokeRefund(refund, qty) && submit) { submit.dataset.busy = 'false'; submit.disabled = false; }
+    });
     document.querySelectorAll('#expenseList, #historyExpenseList, #recentPurchases').forEach(list => list.addEventListener('click', e => {
+      const editRefundBtn = e.target.closest('[data-edit-refund]'); if (editRefundBtn) { openEditRefund(state.expenses.find(x => x.id === editRefundBtn.dataset.editRefund)); return; }
+      const undoRefundBtn = e.target.closest('[data-undo-refund]'); if (undoRefundBtn && confirm('撤销退货并恢复库存？')) { const refund = state.expenses.find(x => x.id === undoRefundBtn.dataset.undoRefund); if (refund?.qty == null) openRevokeRefund(refund); else revokeRefund(refund, Number(refund.qty)); return; }
       const returnBill = e.target.closest('[data-return-expense]');
       if (returnBill) { openReturnFromExpense(state.expenses.find(item => item.id === returnBill.dataset.returnExpense)); return; }
       const add = e.target.closest('[data-add-to-inventory]');
       if (add) openInventoryFromExpense(state.expenses.find(item => item.id === add.dataset.addToInventory));
       const del = e.target.closest('[data-delete-expense]');
-      if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; state.expenses = state.expenses.filter(x => x.id !== deletedId); state.expenseTombstones = { ...(state.expenseTombstones || {}), [deletedId]: Date.now() }; saveState(); renderAll(); showToast('消费记录已删除，关联库存已保留'); }
+      if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; const deleted = state.expenses.find(x => x.id === deletedId); if (deleted?.sourceExpenseId && (Number(deleted.amount) < 0 || deleted.kind === 'refund')) { if (deleted.qty == null) openRevokeRefund(deleted); else revokeRefund(deleted, Number(deleted.qty)); return; } state.expenses = state.expenses.filter(x => x.id !== deletedId); state.expenseTombstones = { ...(state.expenseTombstones || {}), [deletedId]: Date.now() }; saveState(); renderAll(); showToast('消费记录已删除，关联库存已保留'); }
     }));
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; renderHistory(); }));
     byId('historyDate').addEventListener('change', renderHistory);
