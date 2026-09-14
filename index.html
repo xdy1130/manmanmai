@@ -1085,7 +1085,7 @@
       <label>分类<select id="expenseCategory" required></select></label>
       <label class="span-2">商品名称（可不填）<input id="expenseName" maxlength="40" placeholder="例如：洗发水"></label>
       <label>日期<input id="expenseDate" type="date" required></label>
-      <label class="span-2" style="display:flex;align-items:center;gap:10px;font-weight:500"><input id="expenseAddToInventory" type="checkbox" style="width:20px;min-height:20px"> 同时加入库存 <span class="muted small">保存后可补充数量和使用速度</span></label>
+      <label class="span-2" style="display:flex;align-items:center;gap:10px;font-weight:500"><input id="expenseAddToInventory" type="checkbox" style="width:20px;min-height:20px"> 同时加入库存 <span id="expenseInventoryHint" class="muted small">保存后可补充数量和使用速度</span></label>
       <button class="btn btn-primary span-2" type="submit">保存记录</button>
     </form>
   </div>
@@ -2333,9 +2333,10 @@
     function expenseHTML(e, canDelete = false) {
       const isRefund = Number(e.amount) < 0 || e.kind === 'refund';
       const linkedInventory = state.inventory.some(item => item.sourceExpenseId === e.id);
+      const sourceDeleted = linkedInventory && state.expenseTombstones && state.expenseTombstones[e.id];
       const inventoryAction = !isRefund && e.name && e.name !== '日常消费' ? `<button class="btn" data-add-to-inventory="${e.id}" type="button">${linkedInventory ? '已入库存' : '加入库存'}</button>` : '';
       const deleteAction = canDelete ? `<button class="btn btn-icon btn-ghost btn-danger" data-delete-expense="${e.id}" title="删除" aria-label="删除消费"><i data-lucide="trash-2"></i></button>` : '';
-      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}<div class="expense-actions">${inventoryAction}${deleteAction}</div></div></div>`;
+      return `<div class="list-item"><div class="item-main"><div class="item-title">${escapeHTML(e.name || (isRefund ? '退款' : '日常消费'))} ${e.fromLive ? '<span class="pill">直播</span>' : ''}${isRefund ? '<span class="pill">退款</span>' : ''}</div><div class="item-meta">${escapeHTML(e.platform)} · ${escapeHTML(e.category)} · ${e.date}${sourceDeleted ? ' · 来源账单已删除' : ''}</div></div><div class="item-value ${isRefund ? 'refund-value' : ''}">${money(e.amount)}<div class="expense-actions">${inventoryAction}${deleteAction}</div></div></div>`;
     }
     function renderExpenses() {
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
@@ -2445,6 +2446,7 @@
     }
     function inventoryStatus(item) {
       const months = Number(item.monthlyUsage) > 0 ? Number(item.qty) / Number(item.monthlyUsage) : Infinity;
+      if (Number(item.qty) <= 0) return { text: '已用完', cls: 'danger' };
       if (item.expiry && localDate(item.expiry) < localDate(todayISO())) return { text: '已过期', cls: 'danger' };
       if (months < 1.5) return { text: '快用完', cls: 'warn' };
       if (months > 12) return { text: '库存偏多', cls: 'warn' };
@@ -3273,8 +3275,11 @@
       if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; deleteInventoryImage(deletedId).then(() => { saveState(); renderInventory(); renderAttention(); showToast('库存记录已删除'); }).catch(() => { saveState(); renderInventory(); renderAttention(); }); }
     });
     byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
+    byId('expenseKind').addEventListener('change', () => { const refund = byId('expenseKind').value === 'refund'; const box = byId('expenseAddToInventory'); box.disabled = refund; if (refund) { box.checked = false; byId('expenseInventoryHint').textContent = '退款不能加入库存'; } else byId('expenseInventoryHint').textContent = '保存后可补充数量和使用速度'; });
     byId('expenseForm').addEventListener('submit', e => {
       e.preventDefault();
+      if (e.submitter?.dataset.busy === 'true') return;
+      const submit = e.submitter || e.querySelector('button[type=submit]'); if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
       const kind = byId('expenseKind').value;
       const rawAmount = Math.abs(Number(byId('expenseAmount').value));
       const expense = { id: uid(), name: byId('expenseName').value.trim() || (kind === 'refund' ? '退款' : '日常消费'), amount: kind === 'refund' ? -rawAmount : rawAmount, kind, platform: byId('expensePlatform').value, category: byId('expenseCategory').value, date: byId('expenseDate').value, fromLive: false };
@@ -3282,6 +3287,7 @@
       const addToInventory = byId('expenseAddToInventory').checked && kind === 'expense';
       e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseModal').classList.remove('open'); saveState(); renderAll();
       if (addToInventory) openInventoryFromExpense(expense); else showToast(kind === 'refund' ? '退款已记录' : '消费已记录');
+      const resetSubmit = e.querySelector('button[type=submit]'); if (resetSubmit) { resetSubmit.dataset.busy = 'false'; resetSubmit.disabled = false; }
     });
     function openInventoryFromExpense(expense) {
       if (!expense || Number(expense.amount) <= 0) return;
@@ -3293,7 +3299,7 @@
       const add = e.target.closest('[data-add-to-inventory]');
       if (add) openInventoryFromExpense(state.expenses.find(item => item.id === add.dataset.addToInventory));
       const del = e.target.closest('[data-delete-expense]');
-      if (del && confirm('删除这笔消费？')) { state.expenses = state.expenses.filter(x => x.id !== del.dataset.deleteExpense); saveState(); renderAll(); showToast('消费记录已删除'); }
+      if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; state.expenses = state.expenses.filter(x => x.id !== deletedId); state.expenseTombstones = { ...(state.expenseTombstones || {}), [deletedId]: Date.now() }; saveState(); renderAll(); showToast('消费记录已删除，关联库存已保留'); }
     }));
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; renderHistory(); }));
     byId('historyDate').addEventListener('change', renderHistory);
