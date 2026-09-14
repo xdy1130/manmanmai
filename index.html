@@ -1418,6 +1418,24 @@
         return { ...normalizedItem, category: resolved.category, subcategory: existingSubcategory && existingSubcategory !== '未分类' ? existingSubcategory : resolved.child };
       });
     }
+    // 按明确的账单/库存关联迁移旧退款，不用商品名称猜测购买记录。
+    function migrateRefundDates(items = [], inventory = []) {
+      const result = items.map(item => ({ ...item }));
+      const byExpenseId = new Map(result.map(item => [item.id, item]));
+      const byInventoryId = new Map(inventory.map(item => [item.id, item]));
+      result.forEach(refund => {
+        if (!(Number(refund.amount) < 0 || refund.kind === 'refund')) return;
+        const sourceId = refund.sourceExpenseId || byInventoryId.get(refund.sourceInventoryId)?.sourceExpenseId;
+        const purchase = byExpenseId.get(sourceId);
+        if (!purchase || purchase.kind === 'refund' || Number(purchase.amount) <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(purchase.date)) return;
+        if (refund.date !== purchase.date && !refund.refundedAt) refund.refundedAt = refund.date;
+        refund.date = purchase.date;
+        refund.sourceExpenseId = purchase.id;
+        purchase.returned = true;
+        if (!purchase.returnedAt && refund.refundedAt) purchase.returnedAt = refund.refundedAt;
+      });
+      return result;
+    }
     function normalizeExpenseCategories(items = []) {
       return items.map(item => {
         const category = normalizeInventoryCategoryName(item.category);
@@ -1465,7 +1483,11 @@
           return category === String(item.category || '').trim() ? item : { ...item, category };
         }) : [];
         const normalizedInventory = normalizeInventoryItems(migratedInventory, inventoryCategoryParents);
-        const normalizedExpenses = normalizeExpenseCategories(Array.isArray(saved?.expenses) ? saved.expenses : []);
+        const normalizedExpenses = migrateRefundDates(normalizeExpenseCategories(Array.isArray(saved?.expenses) ? saved.expenses : []), normalizedInventory);
+        if (saved && JSON.stringify(saved.expenses) !== JSON.stringify(normalizedExpenses)) {
+          try { localStorage.setItem(storageKey, JSON.stringify({ ...saved, expenses: normalizedExpenses })); }
+          catch (error) { console.warn('旧退款日期暂未写入本地，将在下次保存重试', error); }
+        }
         const savedCategories = Array.isArray(saved?.inventoryCategories) ? saved.inventoryCategories.map(normalizeInventoryCategoryName) : [];
         const savedCategoryOrder = Array.isArray(saved?.inventoryCategoryOrder) ? saved.inventoryCategoryOrder.map(normalizeInventoryCategoryName) : [];
         // 历史版本可能同时保存了“分类已删除”和“该分类仍有物品”两种冲突状态。
@@ -1493,6 +1515,7 @@
     }
     function persistState() {
       try {
+        state.expenses = migrateRefundDates(state.expenses, state.inventory);
         localStorage.setItem(currentStoreKey, JSON.stringify(state));
         queueOfflineSnapshot(currentStoreKey, structuredClone(state));
         lastPersistError = null;
@@ -1696,7 +1719,7 @@
       const inventoryCategoryParents = normalizeInventoryCategoryParents({ ...(localState.inventoryCategoryParents || {}), ...(remoteState.inventoryCategoryParents || {}) });
       const mergedInventory = normalizeInventoryItems(mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones), inventoryCategoryParents);
       const inventoryDeletedCategories = activeInventoryDeletedCategories([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])], mergedInventory);
-      const mergedExpenses = normalizeExpenseCategories(mergeById(localState.expenses, remoteState.expenses));
+      const mergedExpenses = migrateRefundDates(normalizeExpenseCategories(mergeById(localState.expenses, remoteState.expenses)), mergedInventory);
       const localCategoryOrder = inventoryCategoryNames(Array.isArray(localState.inventoryCategoryOrder) ? localState.inventoryCategoryOrder : categories);
       const remoteCategoryOrder = inventoryCategoryNames(Array.isArray(remoteState.inventoryCategoryOrder) ? remoteState.inventoryCategoryOrder : categories);
       const localCategories = inventoryCategoryNames(Array.isArray(localState.inventoryCategories) ? localState.inventoryCategories : categories);
