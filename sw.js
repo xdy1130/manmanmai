@@ -1,5 +1,5 @@
-const CACHE = 'slow-buy-v66';
-const ASSETS = ['./', './index.html', './manifest.json', './app-icon.svg'];
+const CACHE = 'slow-buy-v67';
+const ASSETS = ['./', './index.html', './manifest.json', './app-icon.svg', './storage.js', './offline.js', './migrations.js', './expenses.js', './refunds.js', './inventory.js', './selectors.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
@@ -7,7 +7,7 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)))));
+  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('slow-buy-v') && key !== CACHE).map(key => caches.delete(key)))));
   self.clients.claim();
 });
 
@@ -17,6 +17,7 @@ self.addEventListener('fetch', event => {
   const isHtml = request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html');
   if (isHtml) {
     event.respondWith(fetch(request).then(response => {
+      if (!response.ok) throw new Error('HTML request failed');
       const copy = response.clone();
       caches.open(CACHE).then(cache => cache.put(request, copy));
       return response;

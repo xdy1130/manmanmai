@@ -56,6 +56,7 @@
     .summary span { font-size: 14px; color: var(--muted); }
     .history-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
     .history-periods { min-width: 0; }
+    .history-custom-date[hidden] { display: none; }
     .history-custom-date { display: flex; gap: 8px; grid-column: 1 / -1; }
     .history-custom-date label { min-width: 0; }
     .history-nav { display: flex; gap: 4px; }
@@ -1206,6 +1207,13 @@
 
   <div class="toast" id="toast" role="status"></div>
 
+  <script src="migrations.js"></script>
+  <script src="storage.js"></script>
+  <script src="offline.js"></script>
+  <script src="inventory.js"></script>
+  <script src="refunds.js"></script>
+  <script src="expenses.js"></script>
+  <script src="selectors.js"></script>
   <script>
     // Keep this namespace stable across HTML releases; the service-worker cache version is independent.
     const STORE_KEY = 'slow-buy-v1';
@@ -1215,8 +1223,8 @@
     const IDB_NAME = 'slow-buy-offline-v1';
     const IDB_VERSION = 1;
     const DEVICE_ID_KEY = 'slow-buy-device-id-v1';
-    const DEVICE_ID = localStorage.getItem(DEVICE_ID_KEY) || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    localStorage.setItem(DEVICE_ID_KEY, DEVICE_ID);
+    const DEVICE_ID = getPreference(DEVICE_ID_KEY) || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setPreference(DEVICE_ID_KEY, DEVICE_ID);
     const SUPABASE_PROJECT_URL = 'https://iwqyhzfohjmtscpzenun.supabase.co';
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_aST__7_-Gcj6Wi5ZCP0Pxw_fMbWYxp0';
     const CHAT_WELCOME = '把消费或退款直接告诉我。例如：“昨天在抖音买了身体乳114元”。';
@@ -1246,55 +1254,6 @@
     const todayISO = () => dateISO();
     const money = n => `¥${Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
     const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    let offlineDbPromise = null;
-    function openOfflineDb() {
-      if (!('indexedDB' in window)) return Promise.resolve(null);
-      if (!offlineDbPromise) offlineDbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(IDB_NAME, IDB_VERSION);
-        request.onupgradeneeded = () => {
-          const db = request.result;
-          if (!db.objectStoreNames.contains('states')) db.createObjectStore('states');
-          if (!db.objectStoreNames.contains('backups')) db.createObjectStore('backups');
-          if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'id', autoIncrement: true });
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      }).catch(() => null);
-      return offlineDbPromise;
-    }
-    async function offlinePut(storeName, key, value) {
-      const db = await openOfflineDb(); if (!db) return;
-      await new Promise(resolve => { const tx = db.transaction(storeName, 'readwrite'); tx.objectStore(storeName).put(value, key); tx.oncomplete = resolve; tx.onerror = resolve; });
-    }
-    async function offlineGet(storeName, key) {
-      const db = await openOfflineDb(); if (!db) return null;
-      return new Promise(resolve => { const tx = db.transaction(storeName, 'readonly'); const request = tx.objectStore(storeName).get(key); request.onsuccess = () => resolve(request.result || null); request.onerror = () => resolve(null); });
-    }
-    async function clearOfflineOutbox(storeKey) {
-      const db = await openOfflineDb(); if (!db) return;
-      await new Promise(resolve => { const tx = db.transaction('outbox', 'readwrite'); const store = tx.objectStore('outbox'); const request = store.openCursor(); request.onsuccess = () => { const cursor = request.result; if (!cursor) return resolve(); if (cursor.value?.storeKey === storeKey) cursor.delete(); cursor.continue(); }; request.onerror = resolve; });
-    }
-    async function latestOfflineBackup(storeKey) {
-      const db = await openOfflineDb(); if (!db) return null;
-      return new Promise(resolve => { const tx = db.transaction('backups', 'readonly'); const store = tx.objectStore('backups'); const request = store.getAllKeys(); request.onsuccess = () => { const keys = request.result.filter(item => String(item).startsWith(`${storeKey}:`)).sort(); const key = keys[keys.length - 1]; if (!key) return resolve(null); const read = store.get(key); read.onsuccess = () => resolve(read.result || null); read.onerror = () => resolve(null); }; request.onerror = () => resolve(null); });
-    }
-    function queueOfflineSnapshot(storeKey, snapshot) {
-      const compact = { ...snapshot, wardrobe: (snapshot.wardrobe || []).map(item => ({ ...item, image: '' })) };
-      offlinePut('states', storeKey, snapshot);
-      const backupKey = `${storeKey}:${Date.now()}`;
-      offlinePut('backups', backupKey, compact);
-      openOfflineDb().then(db => { if (!db) return; const tx = db.transaction('backups', 'readwrite'); const store = tx.objectStore('backups'); const request = store.getAllKeys(); request.onsuccess = () => request.result.filter(key => String(key).startsWith(`${storeKey}:`)).sort().slice(0, -30).forEach(key => store.delete(key)); });
-      openOfflineDb().then(db => { if (!db) return; const tx = db.transaction('outbox', 'readwrite'); tx.objectStore('outbox').add({ storeKey, changedAt: Date.now(), domains: ['inventory', 'wardrobe', 'outfits', 'expenses'] }); });
-    }
-    async function hydrateOfflineState(storeKey) {
-      const saved = await offlineGet('states', storeKey);
-      if (!saved || storeKey !== currentStoreKey) return;
-      const merged = mergeState(state, saved);
-      if (JSON.stringify(merged) === JSON.stringify(state)) return;
-      state = merged; persistState(); renderAll();
-      if (authUser) queueCloudSave();
-      setSyncStatus(`已恢复本机离线数据（${wardrobeItems().length} 件衣物）`);
-    }
     const defaultState = {
       monthlyBudget: 2000,
       hosts: [{ id: 'host-default', name: '我喜欢的主播', perLiveBudget: 500, funBudget: 200, stockCap: 6, sessionSpent: 0, sessionDate: todayISO() }],
@@ -1410,13 +1369,13 @@
       const used = new Set(inventoryUsedCategoryNames(items));
       return normalizeInventoryDeletedCategories(values).filter(category => !used.has(category));
     }
-    function rememberInventoryCategories(...names) {
-      const deleted = new Set(normalizeInventoryDeletedCategories(state.inventoryDeletedCategories || []));
-      const currentCategories = Array.isArray(state.inventoryCategories) ? state.inventoryCategories : [];
-      const currentOrder = Array.isArray(state.inventoryCategoryOrder) ? state.inventoryCategoryOrder : [];
+    function rememberInventoryCategories(draft, ...names) {
+      const deleted = new Set(normalizeInventoryDeletedCategories(draft.inventoryDeletedCategories || []));
+      const currentCategories = Array.isArray(draft.inventoryCategories) ? draft.inventoryCategories : [];
+      const currentOrder = Array.isArray(draft.inventoryCategoryOrder) ? draft.inventoryCategoryOrder : [];
       const additions = inventoryCategoryNames(names).filter(name => !deleted.has(name));
-      state.inventoryCategories = inventoryCategoryNames(categories, currentCategories, additions).filter(name => !deleted.has(name));
-      state.inventoryCategoryOrder = inventoryCategoryNames(currentOrder, categories, additions).filter(name => !deleted.has(name));
+      draft.inventoryCategories = inventoryCategoryNames(categories, currentCategories, additions).filter(name => !deleted.has(name));
+      draft.inventoryCategoryOrder = inventoryCategoryNames(currentOrder, categories, additions).filter(name => !deleted.has(name));
     }
     function inventoryStandardCategoryParent(category) {
       const name = normalizeInventoryCategoryName(category);
@@ -1450,24 +1409,6 @@
         return { ...normalizedItem, category: resolved.category, subcategory: existingSubcategory && existingSubcategory !== '未分类' ? existingSubcategory : resolved.child };
       });
     }
-    // 按明确的账单/库存关联迁移旧退款，不用商品名称猜测购买记录。
-    function migrateRefundDates(items = [], inventory = []) {
-      const result = items.map(item => ({ ...item }));
-      const byExpenseId = new Map(result.map(item => [item.id, item]));
-      const byInventoryId = new Map(inventory.map(item => [item.id, item]));
-      result.forEach(refund => {
-        if (!(Number(refund.amount) < 0 || refund.kind === 'refund')) return;
-        const sourceId = refund.sourceExpenseId || byInventoryId.get(refund.sourceInventoryId)?.sourceExpenseId;
-        const purchase = byExpenseId.get(sourceId);
-        if (!purchase || purchase.kind === 'refund' || Number(purchase.amount) <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(purchase.date)) return;
-        if (refund.date !== purchase.date && !refund.refundedAt) refund.refundedAt = refund.date;
-        refund.date = purchase.date;
-        refund.sourceExpenseId = purchase.id;
-        purchase.returned = true;
-        if (!purchase.returnedAt && refund.refundedAt) purchase.returnedAt = refund.refundedAt;
-      });
-      return result;
-    }
     function normalizeExpenseCategories(items = []) {
       return items.map(item => {
         const category = normalizeInventoryCategoryName(item.category);
@@ -1500,131 +1441,15 @@
       return (itemCategory === filterCategory && itemSubcategory === filterSubcategory) || itemCategory === filterSubcategory;
     }
 
-    function loadState(storageKey = currentStoreKey) {
-      try {
-        const saved = JSON.parse(localStorage.getItem(storageKey));
-        const demoWardrobeIds = new Set(['wardrobe-knit','wardrobe-pants','wardrobe-trench','wardrobe-jeans','wardrobe-tee','wardrobe-loafer','wardrobe-dress','wardrobe-hoodie']);
-        const savedWardrobe = Array.isArray(saved?.wardrobe) ? saved.wardrobe : [];
-        const isUntouchedDemo = savedWardrobe.length && savedWardrobe.every(item => demoWardrobeIds.has(item?.id)) && !(saved?.wardrobeWearLogs || []).some(log => !String(log.id || '').startsWith('wear-'));
-        const inventoryCategoryParents = normalizeInventoryCategoryParents(saved?.inventoryCategoryParents && typeof saved.inventoryCategoryParents === 'object' ? saved.inventoryCategoryParents : {});
-        const migratedInventory = Array.isArray(saved?.inventory) ? saved.inventory.map(item => {
-          const name = String(item.name || '');
-          const category = normalizeInventoryCategoryName(item.category);
-          if (!category && /面霜/.test(name)) return { ...item, category: '护肤美妆', subcategory: '面霜' };
-          if (!category && /面膜/.test(name)) return { ...item, category: '护肤美妆', subcategory: '面膜' };
-          return category === String(item.category || '').trim() ? item : { ...item, category };
-        }) : [];
-        const normalizedInventory = normalizeInventoryItems(migratedInventory, inventoryCategoryParents);
-        const normalizedExpenses = migrateRefundDates(normalizeExpenseCategories(Array.isArray(saved?.expenses) ? saved.expenses : []), normalizedInventory);
-        if (saved && JSON.stringify(saved.expenses) !== JSON.stringify(normalizedExpenses)) {
-          try { localStorage.setItem(storageKey, JSON.stringify({ ...saved, expenses: normalizedExpenses })); }
-          catch (error) { console.warn('旧退款日期暂未写入本地，将在下次保存重试', error); }
-        }
-        const savedCategories = Array.isArray(saved?.inventoryCategories) ? saved.inventoryCategories.map(normalizeInventoryCategoryName) : [];
-        const savedCategoryOrder = Array.isArray(saved?.inventoryCategoryOrder) ? saved.inventoryCategoryOrder.map(normalizeInventoryCategoryName) : [];
-        // 历史版本可能同时保存了“分类已删除”和“该分类仍有物品”两种冲突状态。
-        // 以实际库存为准，避免右侧有物品分组而侧边导航隐藏对应分类。
-        const inventoryDeletedCategories = activeInventoryDeletedCategories(Array.isArray(saved?.inventoryDeletedCategories) ? saved.inventoryDeletedCategories : [], normalizedInventory);
-        const inventoryCategoryOrder = inventoryCategoryNames(savedCategoryOrder, categories, savedCategories, Object.keys(inventoryCategoryParents), Object.values(inventoryCategoryParents), normalizedInventory.map(item => item.category)).filter(category => !inventoryDeletedCategories.includes(category));
-        return saved ? {
-          ...defaultState,
-          ...saved,
-          inventory: normalizedInventory,
-          expenses: normalizedExpenses,
-          inventoryCategoryOrder,
-          inventoryCategoryParents,
-          inventoryDeletedCategories,
-          inventoryTombstones: saved.inventoryTombstones && typeof saved.inventoryTombstones === 'object' ? saved.inventoryTombstones : {},
-          inventoryCategories: inventoryCategoryNames(categories, savedCategories, savedCategoryOrder, inventoryCategoryOrder, Object.keys(inventoryCategoryParents), Object.values(inventoryCategoryParents), normalizedInventory.map(item => item.category)).filter(category => !inventoryDeletedCategories.includes(category)),
-          inventoryUnits: Array.isArray(saved.inventoryUnits) && saved.inventoryUnits.length ? saved.inventoryUnits : [...defaultInventoryUnits],
-          chatHistory: Array.isArray(saved.chatHistory) ? saved.chatHistory : [],
-          chatContext: { ...defaultState.chatContext, ...(saved.chatContext || {}) },
-          wardrobe: isUntouchedDemo ? [] : (Array.isArray(saved.wardrobe) ? saved.wardrobe : []),
-          wardrobeOutfits: isUntouchedDemo ? [] : (Array.isArray(saved.wardrobeOutfits) ? saved.wardrobeOutfits : []),
-          wardrobeWearLogs: isUntouchedDemo ? [] : (Array.isArray(saved.wardrobeWearLogs) ? saved.wardrobeWearLogs : [])
-        } : structuredClone(defaultState);
-      } catch { return structuredClone(defaultState); }
-    }
-    function persistState() {
-      try {
-        state.expenses = migrateRefundDates(state.expenses, state.inventory);
-        localStorage.setItem(currentStoreKey, JSON.stringify(state));
-        queueOfflineSnapshot(currentStoreKey, structuredClone(state));
-        lastPersistError = null;
-        return true;
-      } catch (error) {
-        lastPersistError = error;
-        console.error('保存本地数据失败', error);
-        return false;
-      }
-    }
-    function accountStoreKey(user) { return `${STORE_KEY}:account:${user.id}`; }
-    function activateAccountState(user) {
-      if (!user?.id) return;
-      const nextKey = accountStoreKey(user);
-      const hasAccountCache = Boolean(localStorage.getItem(nextKey));
-      const migrationOwner = localStorage.getItem(ACCOUNT_SCOPE_MARKER);
-      const legacyState = localStorage.getItem(LEGACY_STATE_KEY);
-      if (!hasAccountCache && !migrationOwner) {
-        let migrationSnapshot = currentStoreKey === STORE_KEY && hasPersonalData(state) ? state : null;
-        if (!migrationSnapshot && legacyState) {
-          try { migrationSnapshot = JSON.parse(legacyState); } catch { migrationSnapshot = null; }
-        }
-        if (migrationSnapshot && hasPersonalData(migrationSnapshot)) {
-          localStorage.setItem(nextKey, JSON.stringify(migrationSnapshot));
-          if (legacyState) localStorage.removeItem(LEGACY_STATE_KEY);
-          localStorage.setItem(ACCOUNT_SCOPE_MARKER, user.id);
-          localStorage.setItem(STORE_KEY, JSON.stringify(structuredClone(defaultState)));
-        }
-      }
-      currentStoreKey = nextKey;
-      state = loadState(nextKey);
-      hydrateOfflineState(nextKey);
-      inventoryImageLoadKey = '';
-      inventoryImageCache = new Map();
-      authUser = user;
-    }
-    function activateGuestState() {
-      if (currentStoreKey === STORE_KEY && !localStorage.getItem(ACCOUNT_SCOPE_MARKER) && hasPersonalData(state)) localStorage.setItem(LEGACY_STATE_KEY, JSON.stringify(state));
-      currentStoreKey = STORE_KEY;
-      state = loadState(STORE_KEY);
-      hydrateOfflineState(STORE_KEY);
-      inventoryImageLoadKey = '';
-      inventoryImageCache = new Map();
-      authUser = null;
-      pendingDecision = null;
-      pendingChatEntries = [];
-    }
-    function prepareGuestBootState() {
-      currentStoreKey = STORE_KEY;
-      if (localStorage.getItem(ACCOUNT_SCOPE_MARKER)) {
-        state = structuredClone(defaultState);
-        return;
-      }
-      const legacyState = localStorage.getItem(LEGACY_STATE_KEY);
-      if (!hasPersonalData(state) && legacyState) {
-        try {
-          state = { ...defaultState, ...JSON.parse(legacyState) };
-          persistState();
-          localStorage.removeItem(LEGACY_STATE_KEY);
-        } catch { /* Keep the current default state when an old backup is malformed. */ }
-      }
-    }
-    function saveState() {
-      if (!persistState()) return false;
-      renderAll();
-      queueCloudSave();
-      return true;
-    }
     function loadSyncConfig() {
       try {
-        const saved = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {};
+        const saved = JSON.parse(getPreference(SYNC_CONFIG_KEY)) || {};
         return { ...saved, supabaseUrl: SUPABASE_PROJECT_URL, anonKey: SUPABASE_PUBLISHABLE_KEY, lastSyncedAt: saved.lastSyncedAt || '' };
       } catch {
         return { supabaseUrl: SUPABASE_PROJECT_URL, anonKey: SUPABASE_PUBLISHABLE_KEY, lastSyncedAt: '' };
       }
     }
-    function saveSyncConfig() { localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(syncConfig)); }
+    function saveSyncConfig() { setPreference(SYNC_CONFIG_KEY, JSON.stringify(syncConfig)); }
     function hasSyncConfig() { return Boolean(syncConfig.supabaseUrl && syncConfig.anonKey); }
     function normalizeSupabaseUrl(url) { return String(url || '').trim().replace(/\/+$/, ''); }
     function getSupabaseClient() {
@@ -1730,16 +1555,7 @@
       return merged;
     }
     function mergeInventoryById(localItems = [], remoteItems = [], tombstones = {}) {
-      const items = new Map();
-      [...localItems, ...remoteItems].forEach(item => {
-        if (!item?.id) return;
-        const current = items.get(item.id);
-        if (!current || Number(item.updatedAt || 0) >= Number(current.updatedAt || 0)) items.set(item.id, item);
-      });
-      return [...items.values()].filter(item => {
-        const deletedAt = Number(tombstones[item.id] || 0);
-        return !deletedAt || Number(item.updatedAt || 0) > deletedAt;
-      });
+      return mergeEntityRecords(localItems, remoteItems, tombstones);
     }
     function mergeState(localState, remoteState) {
       const demoWardrobeIds = new Set(['wardrobe-knit','wardrobe-pants','wardrobe-trench','wardrobe-jeans','wardrobe-tee','wardrobe-loafer','wardrobe-dress','wardrobe-hoodie']);
@@ -1751,7 +1567,9 @@
       const inventoryCategoryParents = normalizeInventoryCategoryParents({ ...(localState.inventoryCategoryParents || {}), ...(remoteState.inventoryCategoryParents || {}) });
       const mergedInventory = normalizeInventoryItems(mergeInventoryById(localState.inventory, remoteState.inventory, inventoryTombstones), inventoryCategoryParents);
       const inventoryDeletedCategories = activeInventoryDeletedCategories([...(localState.inventoryDeletedCategories || []), ...(remoteState.inventoryDeletedCategories || [])], mergedInventory);
-      const mergedExpenses = migrateRefundDates(normalizeExpenseCategories(mergeById(localState.expenses, remoteState.expenses)), mergedInventory);
+      const expenseTombstones = mergeInventoryTombstones(localState.expenseTombstones, remoteState.expenseTombstones);
+      const mergedExpenses = migrateRefundDates(normalizeExpenseCategories(mergeEntityRecords(localState.expenses, remoteState.expenses, expenseTombstones)), mergedInventory);
+      validateBusinessState({expenses:mergedExpenses, inventory:mergedInventory});
       const localCategoryOrder = inventoryCategoryNames(Array.isArray(localState.inventoryCategoryOrder) ? localState.inventoryCategoryOrder : categories);
       const remoteCategoryOrder = inventoryCategoryNames(Array.isArray(remoteState.inventoryCategoryOrder) ? remoteState.inventoryCategoryOrder : categories);
       const localCategories = inventoryCategoryNames(Array.isArray(localState.inventoryCategories) ? localState.inventoryCategories : categories);
@@ -1766,6 +1584,9 @@
         inventory: mergedInventory,
         inventoryTombstones,
         expenses: mergedExpenses,
+        schemaVersion: SCHEMA_VERSION,
+        expenseTombstones,
+        recordTombstones: {...(localState.recordTombstones || {}), ...(remoteState.recordTombstones || {})},
         inventoryDeletedCategories,
         inventoryCategoryParents,
         inventoryCategoryOrder: inventoryCategoryNames(...mergedCategoryOrderSources).filter(category => !inventoryDeletedCategories.includes(category)),
@@ -1808,12 +1629,14 @@
       const user = authUser || await refreshAuthUser();
       if (!user) { setAuthStatus(); return; }
       const now = new Date().toISOString();
-      const { error } = await getSupabaseClient().from('app_state').upsert({ id: user.id, user_id: user.id, data: state, updated_at: now });
+      const storeKey = currentStoreKey; const through = Date.now(); const snapshot = structuredClone(state);
+      const { error } = await getSupabaseClient().from('app_state').upsert({ id: user.id, user_id: user.id, data: snapshot, updated_at: now });
       if (error) throw new Error(`云端保存失败：${error.message}`);
       await getSupabaseClient().from('app_state_events').insert({ user_id: user.id, device_id: DEVICE_ID, changed_at: now, domains: ['inventory', 'wardrobe', 'outfits', 'expenses'], state_version: now });
       syncConfig.lastSyncedAt = now;
       saveSyncConfig();
-      clearOfflineOutbox(currentStoreKey);
+      await offlineWriteQueue.catch(() => {});
+      await clearOfflineOutbox(storeKey, through);
       setSyncStatus(`已同步到云端（${wardrobeItems().length} 件衣物）`, now);
       if (showMessage) showToast('已推送到云端');
     }
@@ -1830,9 +1653,10 @@
         return;
       }
       isApplyingCloudState = true;
-      state = mergeState(state, remoteState);
-      persistState();
-      isApplyingCloudState = false;
+      try {
+        state = mergeState(state, remoteState);
+        if (!persistState()) throw lastPersistError || new Error('云端数据尚未保存到本机');
+      } finally { isApplyingCloudState = false; }
       renderAll();
       await pushCloudState(false);
       setSyncStatus(`已从云端合并（${wardrobeItems().length} 件衣物）`);
@@ -1878,9 +1702,6 @@
     function escapeHTML(value) {
       return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
     }
-    function monthKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; }
-    function expenseTotal(filter) { return state.expenses.filter(filter).reduce((sum, item) => sum + Number(item.amount), 0); }
-    function monthSpent() { const key = monthKey(); return expenseTotal(e => e.date.startsWith(key)); }
     function currentHost() { return state.hosts.find(h => h.id === byId('decisionHost').value) || state.hosts[0]; }
     function categoryStock(category) {
       const items = state.inventory.filter(i => i.category === category);
@@ -2193,11 +2014,8 @@
       if (chatView === 'today') feed.scrollTop = feed.scrollHeight;
     }
     function addChatMessage(text, role) {
-      state.chatHistory.push({ role, text, date: todayISO() });
-      state.chatHistory = state.chatHistory.slice(-40);
-      persistState();
-      byId('chatFeed').insertAdjacentHTML('beforeend', messageHTML({ role, text }));
-      iconRefresh();
+      const result = transact(draft => { draft.chatHistory = [...(draft.chatHistory || []), {role,text,date:todayISO()}].slice(-40); });
+      if (!result.ok) showToast('对话保存失败');
     }
     async function copyText(text) {
       try {
@@ -2222,8 +2040,7 @@
     }
 
     function wardrobeItems() {
-      if (!Array.isArray(state.wardrobe)) state.wardrobe = [];
-      return state.wardrobe.filter(item => item && item.status !== 'removed');
+      return (state.wardrobe || []).filter(item => item && item.status !== 'removed');
     }
     function wardrobeDaysSince(iso) {
       if (!iso) return 999;
@@ -2245,7 +2062,6 @@
       const saved = Array.isArray(state.wardrobeCategories) ? state.wardrobeCategories : [];
       const fromItems = (state.wardrobe || []).map(item => item?.category).filter(Boolean);
       const merged = [...new Set([...defaultWardrobeCategories, ...saved, ...fromItems].map(item => String(item).trim()).filter(Boolean))];
-      state.wardrobeCategories = merged;
       return merged;
     }
     function renderWardrobeCategoryControls() {
@@ -2416,63 +2232,9 @@
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
       byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
     }
-    let historyPeriod = localStorage.getItem('slow-buy-history-period') || 'month';
-    let historyTrendPeriod = localStorage.getItem('slow-buy-history-trend-period') === 'week' ? 'week' : 'month';
-    let historyAnchorISO = localStorage.getItem('slow-buy-history-anchor') || todayISO();
-    function localDate(iso) { const [year, month, day] = String(iso || todayISO()).split('-').map(Number); return new Date(year, month - 1, day); }
-    function historyRange(period, anchorISO) {
-      const anchor = localDate(anchorISO); let start = new Date(anchor); let end = new Date(anchor);
-      if (period === 'today') { /* same day */ }
-      if (period === 'week') { const offset = (anchor.getDay() + 6) % 7; start.setDate(anchor.getDate() - offset); end = new Date(start); end.setDate(start.getDate() + 6); }
-      if (period === 'month') { start.setDate(1); end = new Date(start.getFullYear(), start.getMonth() + 1, 0); }
-      if (period === 'prevMonth') { start = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1); end = new Date(anchor.getFullYear(), anchor.getMonth(), 0); }
-      if (period === 'custom') { const s = localDate(byId('historyStartDate')?.value || anchorISO); const e = localDate(byId('historyEndDate')?.value || anchorISO); start = s <= e ? s : e; end = s <= e ? e : s; }
-      return { start, end };
-    }
-    function historyLabel(period, range) {
-      const format = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-      const prefix = period === 'today' ? '今天' : period === 'week' ? '本周' : period === 'month' ? '本月' : period === 'prevMonth' ? '上月' : '自定义';
-      return `${prefix}统计：${format(range.start)}${period === 'today' || (range.start.getTime() === range.end.getTime()) ? '' : `至${format(range.end)}`}`;
-    }
-    function historyChartBuckets(period, expenses) {
-      const valid = expenses.filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.date));
-      if (!valid.length) return [];
-      const bucketKey = date => {
-        if (period === 'day') return dateISO(date);
-        if (period === 'week') { const monday = new Date(date); monday.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return dateISO(monday); }
-        if (period === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        if (period === 'quarter') return `${date.getFullYear()}-Q${Math.floor(date.getMonth() / 3) + 1}`;
-        return String(date.getFullYear());
-      };
-      const bucketLabel = date => {
-        if (period === 'day') return `${date.getMonth() + 1}/${date.getDate()}`;
-        if (period === 'week') return isoWeekLabel(date);
-        if (period === 'month') return `${date.getFullYear()}年${date.getMonth() + 1}月`;
-        if (period === 'quarter') return `${date.getFullYear()}年Q${Math.floor(date.getMonth() / 3) + 1}`;
-        return `${date.getFullYear()}年`;
-      };
-      const totals = new Map(); const dates = valid.map(item => localDate(item.date)).sort((a, b) => a - b); const first = new Date(dates[0]); const last = new Date(dates[dates.length - 1]);
-      const normalize = date => {
-        if (period === 'week') { date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); date.setHours(0, 0, 0, 0); }
-        if (period === 'month') date.setDate(1);
-        if (period === 'quarter') { date.setMonth(Math.floor(date.getMonth() / 3) * 3, 1); }
-        if (period === 'year') date.setMonth(0, 1);
-        return date;
-      };
-      valid.forEach(item => { const date = localDate(item.date); const key = bucketKey(date); totals.set(key, (totals.get(key) || 0) + Number(item.amount)); });
-      let cursor = normalize(first); const end = normalize(last); const buckets = [];
-      while (cursor <= end) {
-        const key = bucketKey(cursor); buckets.push({ label: bucketLabel(cursor), value: totals.get(key) || 0, date: new Date(cursor) });
-        if (period === 'day') cursor.setDate(cursor.getDate() + 1); else if (period === 'week') cursor.setDate(cursor.getDate() + 7); else if (period === 'month') cursor.setMonth(cursor.getMonth() + 1); else if (period === 'quarter') cursor.setMonth(cursor.getMonth() + 3); else cursor.setFullYear(cursor.getFullYear() + 1);
-      }
-      return buckets;
-    }
-    function isoWeekLabel(date) {
-      const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())); const day = utc.getUTCDay() || 7;
-      utc.setUTCDate(utc.getUTCDate() + 4 - day);
-      const year = utc.getUTCFullYear(); const yearStart = new Date(Date.UTC(year, 0, 1)); const week = Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
-      return `${year}WK${String(week).padStart(2, '0')}`;
-    }
+    let historyPeriod = getPreference('slow-buy-history-period') || 'month';
+    let historyTrendPeriod = getPreference('slow-buy-history-trend-period') === 'week' ? 'week' : 'month';
+    let historyAnchorISO = getPreference('slow-buy-history-anchor') || todayISO();
     function bindHistoryChartTooltip(chart) {
       const tooltip = chart.querySelector('.history-chart-tooltip'); if (!tooltip) return;
       const show = (dot, clientX, clientY) => {
@@ -2506,9 +2268,8 @@
     }
     function renderHistory() {
       const range = historyRange(historyPeriod, historyAnchorISO);
-      const items = state.expenses.filter(item => { const date = localDate(item.date); return date >= range.start && date <= range.end; }).sort((a, b) => b.date.localeCompare(a.date));
-      const purchaseTotal = items.filter(item => Number(item.amount) > 0).reduce((sum, item) => sum + Number(item.amount), 0);
-      const refundTotal = items.filter(item => Number(item.amount) < 0).reduce((sum, item) => sum + Math.abs(Number(item.amount)), 0);
+      const items = filterExpenses(state.expenses, range);
+      const {purchase: purchaseTotal, refund: refundTotal} = expenseTotals(items);
       byId('historyPurchaseTotal').textContent = money(purchaseTotal);
       byId('historyRefundTotal').textContent = money(refundTotal);
       byId('historyNetTotal').textContent = money(purchaseTotal - refundTotal);
@@ -2519,7 +2280,7 @@
       document.querySelectorAll('[data-trend-period]').forEach(button => { const active = button.dataset.trendPeriod === historyTrendPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
       const grouped = new Map();
       items.forEach(item => { if (!grouped.has(item.date)) grouped.set(item.date, []); grouped.get(item.date).push(item); });
-      byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(dayItems.reduce((sum, item) => sum + Number(item.amount), 0))}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
+      byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(expenseTotals(dayItems).net)}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
       document.querySelectorAll('[data-history-period]').forEach(button => { const active = button.dataset.historyPeriod === historyPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
       byId('historyCustomDate').hidden = historyPeriod !== 'custom';
     }
@@ -2623,8 +2384,7 @@
       siblingOrder.splice(sourceIndex, 1);
       siblingOrder.splice(targetIndex, 0, source);
       siblingPositions.forEach((position, index) => { order[position] = siblingOrder[index]; });
-      state.inventoryCategoryOrder = order;
-      saveState();
+      if (!transact(draft => { draft.inventoryCategoryOrder = order; }).ok) { showToast('保存失败'); return; }
       renderInventory();
     }
     function moveInventoryCategoryByStep(category, direction, parent = '') {
@@ -2661,13 +2421,11 @@
         return;
       }
       if (name === '全部' || categories.includes(name) || (state.inventoryCategories || []).includes(name)) { showToast('这个分类已经存在'); return; }
-      rememberInventoryCategories(name);
-      state.inventoryDeletedCategories = normalizeInventoryDeletedCategories(state.inventoryDeletedCategories || []).filter(item => item !== name);
+      if (!transact(draft => { draft.inventoryDeletedCategories = normalizeInventoryDeletedCategories(draft.inventoryDeletedCategories || []).filter(item => item !== name); rememberInventoryCategories(draft, name); }).ok) { showToast('保存失败'); return; }
       resetInventoryCategoryEditor();
       inventoryFilter = name;
       inventoryFilterSubcategory = '';
       inventoryDraftCategory = name;
-      saveState();
       renderInventoryInputs();
       renderInventory();
       showToast(`已新增分类“${name}”`);
@@ -2677,16 +2435,17 @@
       if (!category || category === '其他') return;
       if (!window.confirm(`删除分类“${category}”？其中库存会归入“其他”。`)) return;
       if (inventoryEditingCategory === category) resetInventoryCategoryEditor();
-      state.inventory.forEach(item => { if ((normalizeInventoryCategoryName(item.category) || '其他') === category) { item.category = '其他'; item.subcategory = ''; } });
-      state.inventoryCategories = inventoryCategoryNames(state.inventoryCategories || []).filter(item => item !== category);
-      state.inventoryCategoryOrder = inventoryCategoryNames(state.inventoryCategoryOrder || categories).filter(item => item !== category);
-      state.inventoryDeletedCategories = normalizeInventoryDeletedCategories([...(state.inventoryDeletedCategories || []), category]);
-      const parents = normalizeInventoryCategoryParents(state.inventoryCategoryParents || {});
+      if (!transact(draft => {
+      [...draft.inventory, ...draft.expenses].forEach(item => { if ((normalizeInventoryCategoryName(item.category) || '其他') === category) { item.category = '其他'; item.subcategory = ''; } else if (item.subcategory === category) item.subcategory = ''; });
+      draft.inventoryCategories = inventoryCategoryNames(draft.inventoryCategories || []).filter(item => item !== category);
+      draft.inventoryCategoryOrder = inventoryCategoryNames(draft.inventoryCategoryOrder || categories).filter(item => item !== category);
+      draft.inventoryDeletedCategories = normalizeInventoryDeletedCategories([...(draft.inventoryDeletedCategories || []), category]);
+      const parents = normalizeInventoryCategoryParents(draft.inventoryCategoryParents || {});
       delete parents[category];
       Object.keys(parents).forEach(child => { if (parents[child] === category) delete parents[child]; });
-      state.inventoryCategoryParents = parents;
+      draft.inventoryCategoryParents = parents;
+      }).ok) { showToast('保存失败'); return; }
       inventoryFilter = '全部'; inventoryFilterSubcategory = ''; inventoryDraftCategory = '';
-      saveState();
       renderInventoryInputs();
       renderInventory();
     }
@@ -2713,16 +2472,17 @@
       const oldParent = inventoryCategoryParent(oldName, categoryParents);
       const oldChildren = inventoryCategorySiblings(oldName);
       const renameList = values => inventoryCategoryNames(values).map(name => name === oldName ? newName : name);
-      state.inventory = (state.inventory || []).map(item => {
+      if (!transact(draft => {
+      draft.inventory = (draft.inventory || []).map(item => {
         const next = { ...item };
         if (normalizeInventoryCategoryName(next.category) === oldName) next.category = newName;
         if (normalizeInventoryCategoryName(next.subcategory) === oldName) next.subcategory = newName;
         return next;
       });
-      state.inventoryCategories = renameList(state.inventoryCategories || []);
-      state.inventoryCategoryOrder = renameList(state.inventoryCategoryOrder || []);
-      state.inventoryDeletedCategories = normalizeInventoryDeletedCategories([
-        ...(state.inventoryDeletedCategories || []),
+      draft.inventoryCategories = renameList(draft.inventoryCategories || []);
+      draft.inventoryCategoryOrder = renameList(draft.inventoryCategoryOrder || []);
+      draft.inventoryDeletedCategories = normalizeInventoryDeletedCategories([
+        ...(draft.inventoryDeletedCategories || []),
         oldName
       ]).filter(name => name !== newName);
       const renamedParents = {};
@@ -2736,11 +2496,12 @@
         if (child !== oldName && inventoryCategoryParent(child, categoryParents) === oldName) renamedParents[child] = newName;
       });
       if (oldParent && oldParent !== oldName && !renamedParents[newName]) renamedParents[newName] = oldParent;
-      state.inventoryCategoryParents = normalizeInventoryCategoryParents(renamedParents);
+      draft.inventoryCategoryParents = normalizeInventoryCategoryParents(renamedParents);
+      draft.expenses = draft.expenses.map(item => ({...item, category:item.category === oldName ? newName : item.category}));
+      }).ok) { showToast('保存失败'); return false; }
       if (inventoryFilter === oldName) inventoryFilter = newName;
       if (inventoryFilterSubcategory === oldName) inventoryFilterSubcategory = newName;
       if (inventoryDraftCategory === oldName) inventoryDraftCategory = newName;
-      saveState();
       showToast(`已将分类“${oldName}”改为“${newName}”`);
       return true;
     }
@@ -2758,16 +2519,17 @@
       }
       parents[sourceName] = parentName;
       Object.keys(parents).forEach(child => { if (parents[child] === sourceName) parents[child] = parentName; });
-      state.inventory.forEach(item => {
+      if (!transact(draft => {
+      draft.inventory.forEach(item => {
         if ((normalizeInventoryCategoryName(item.category) || '其他') === sourceName) { item.category = parentName; item.subcategory = item.subcategory || sourceName; }
         else if ((item.subcategory || '') === sourceName) item.category = parentName;
       });
-      state.inventoryCategoryParents = parents;
-      state.inventory = normalizeInventoryItems(state.inventory, parents);
-      rememberInventoryCategories(sourceName, parentName);
+      draft.inventoryCategoryParents = parents;
+      draft.inventory = normalizeInventoryItems(draft.inventory, parents);
+      rememberInventoryCategories(draft, sourceName, parentName);
+      }).ok) { showToast('保存失败'); return; }
       inventoryFilter = parentName;
       inventoryFilterSubcategory = sourceName;
-      saveState();
       renderInventoryInputs();
       renderInventory();
     }
@@ -2846,86 +2608,10 @@
         reader.onerror = () => resolve(''); reader.readAsDataURL(file);
       });
     }
-    async function compactInventoryImages() {
-      await Promise.all(state.inventory.map(async item => {
-        if (item.image && item.image.length > 100000) {
-          const compact = await compressInventoryImageSource(item.image);
-          if (compact) item.image = compact;
-        }
-      }));
-    }
     function setInventoryImagePreview(data) {
       const preview = byId('inventoryImagePreview'); const hasImage = Boolean(data);
       preview.src = data || ''; preview.classList.toggle('visible', hasImage);
       byId('removeInventoryImageBtn').classList.toggle('visible', hasImage);
-    }
-    function inventoryImageKey(id, storeKey = currentStoreKey) { return `${storeKey}:${id}`; }
-    function openInventoryImageDb() {
-      if (inventoryImageDbPromise) return inventoryImageDbPromise;
-      inventoryImageDbPromise = new Promise((resolve, reject) => {
-        if (!('indexedDB' in window)) { reject(new Error('IndexedDB unavailable')); return; }
-        const request = indexedDB.open('manmanmai-inventory-images-v1', 1);
-        request.onupgradeneeded = () => request.result.createObjectStore('images');
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
-      });
-      return inventoryImageDbPromise;
-    }
-    async function saveInventoryImage(id, data) {
-      const db = await openInventoryImageDb();
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction('images', 'readwrite');
-        tx.objectStore('images').put(data, inventoryImageKey(id));
-        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error || new Error('Image save failed'));
-      });
-      inventoryImageCache.set(id, data);
-    }
-    async function deleteInventoryImage(id) {
-      try {
-        const db = await openInventoryImageDb();
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction('images', 'readwrite');
-          tx.objectStore('images').delete(inventoryImageKey(id));
-          tx.oncomplete = resolve; tx.onerror = () => reject(tx.error || new Error('Image delete failed'));
-        });
-      } finally { inventoryImageCache.delete(id); }
-    }
-    async function loadInventoryImages() {
-      const loadKey = currentStoreKey;
-      if (inventoryImageLoadKey === loadKey) return;
-      inventoryImageLoadKey = loadKey;
-      inventoryImageCache = new Map();
-      try {
-        const db = await openInventoryImageDb();
-        await Promise.all(state.inventory.map(async item => {
-          let data = item.image || '';
-          if (data) {
-            await saveInventoryImage(item.id, data);
-            item.image = '';
-            persistState();
-          } else {
-            data = await new Promise((resolve, reject) => {
-              const tx = db.transaction('images', 'readonly'); const request = tx.objectStore('images').get(inventoryImageKey(item.id));
-              request.onsuccess = () => resolve(request.result || ''); request.onerror = () => reject(request.error);
-            });
-          }
-          if (data) inventoryImageCache.set(item.id, data);
-        }));
-        renderInventory(); renderAttention();
-      } catch (error) {
-        console.warn('库存照片数据库不可用', error);
-      }
-    }
-    async function clearInventoryImages() {
-      const db = await openInventoryImageDb();
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction('images', 'readwrite');
-        const store = tx.objectStore('images');
-        const request = store.getAllKeys();
-        request.onsuccess = () => request.result.filter(key => String(key).startsWith(`${currentStoreKey}:`)).forEach(key => store.delete(key));
-        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error || new Error('Image clear failed'));
-      });
-      inventoryImageCache.clear();
     }
     function renderInventoryStorage() {
       const imageItems = state.inventory.filter(item => item.image || inventoryImageCache.has(item.id));
@@ -3129,11 +2815,7 @@
           platform: context.platform || item.platform,
           date: context.date || item.date
         }));
-        state.chatContext = {
-          platform: context.platform || state.chatContext.platform,
-          date: context.date || state.chatContext.date
-        };
-        persistState();
+        if (!transact(draft => { draft.chatContext = {platform: context.platform || draft.chatContext.platform, date: context.date || draft.chatContext.date}; }).ok) { showToast('保存失败'); return; }
         const changes = [context.platform, context.date].filter(Boolean).join(' · ');
         addChatMessage(`已把待确认记录改为 ${changes}。`, 'assistant');
         renderChatPreview();
@@ -3146,8 +2828,7 @@
       if (!parsedEntries.length) {
         addChatMessage('我还没找到明确的金额。可以试试“昨天在淘宝买了衣服230元”。', 'assistant');
       } else {
-        state.chatContext = { date: parsedEntries[0].date, platform: context.platform || parsedEntries[0].platform };
-        persistState();
+        if (!transact(draft => { draft.chatContext = {date: parsedEntries[0].date, platform: context.platform || parsedEntries[0].platform}; }).ok) { showToast('保存失败'); return; }
         addChatMessage(`我理解到 ${pendingChatEntries.length} 笔记录，请确认。`, 'assistant');
       }
       renderChatPreview();
@@ -3168,11 +2849,11 @@
         byId('chatInput').focus();
       }
       if (e.target.closest('#confirmChatEntries') && pendingChatEntries.length) {
-        state.expenses.push(...pendingChatEntries);
+        const result = transact(draft => pendingChatEntries.forEach(item => ExpenseOps.add(draft, item)));
+        if (!result.ok) { showToast(result.error.message); return; }
         const count = pendingChatEntries.length;
         pendingChatEntries = [];
         renderChatPreview();
-        saveState();
         addChatMessage(`已记录 ${count} 笔，账单已更新。`, 'assistant');
       }
     });
@@ -3187,9 +2868,10 @@
       if (e.target.closest('#skipPurchase')) { pendingDecision = null; byId('decisionResult').className = 'result'; showToast('这次省下了'); }
       if (e.target.closest('#confirmPurchase') && pendingDecision) {
         const host = state.hosts.find(h => h.id === pendingDecision.hostId);
-        host.sessionSpent += pendingDecision.price;
-        state.expenses.push({ id: uid(), name: pendingDecision.name, amount: pendingDecision.price, kind: 'expense', category: pendingDecision.category, platform: '直播间', date: todayISO(), fromLive: true, hostId: host.id });
-        byId('decisionForm').reset(); byId('decisionQty').value = 1; updateDecisionStep(1); byId('decisionResult').className = 'result'; pendingDecision = null; saveState(); showToast('已记入本场和本月消费');
+        const result = transact(draft => { draft.hosts.find(h => h.id === host.id).sessionSpent += pendingDecision.price;
+        ExpenseOps.add(draft, { id: uid(), name: pendingDecision.name, amount: pendingDecision.price, kind: 'expense', category: pendingDecision.category, platform: '直播间', date: todayISO(), fromLive: true, hostId: host.id }); });
+        if (!result.ok) { showToast(result.error.message); return; }
+        byId('decisionForm').reset(); byId('decisionQty').value = 1; updateDecisionStep(1); byId('decisionResult').className = 'result'; pendingDecision = null; showToast('已记入本场和本月消费');
       }
     });
 
@@ -3209,7 +2891,7 @@
     byId('wardrobeOutfitModal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.classList.remove('open'); });
     byId('wardrobeSearch').addEventListener('input', e => { wardrobeSearch = e.target.value; renderWardrobe(); });
     byId('wardrobeFilters').addEventListener('click', e => { const add = e.target.closest('[data-wardrobe-add-category]'); if (add) { byId('wardrobeCategoryForm').reset(); byId('wardrobeCategoryModal').classList.add('open'); setTimeout(() => byId('wardrobeCategoryName').focus(), 80); return; } const button = e.target.closest('[data-wardrobe-filter]'); if (!button) return; wardrobeFilter = button.dataset.wardrobeFilter; renderWardrobe(); });
-    byId('wardrobeCategoryForm').addEventListener('submit', e => { e.preventDefault(); const name = byId('wardrobeCategoryName').value.trim(); if (!name) return; const categories = wardrobeCategories(); if (categories.includes(name)) { showToast('这个类别已经存在'); return; } state.wardrobeCategories = [...categories, name]; wardrobeFilter = name; byId('wardrobeCategoryModal').classList.remove('open'); saveState(); queueCloudSave(); renderWardrobe(); showToast(`已新增类别：${name}`); });
+    byId('wardrobeCategoryForm').addEventListener('submit', e => { e.preventDefault(); const name = byId('wardrobeCategoryName').value.trim(); if (!name) return; const categories = wardrobeCategories(); if (categories.includes(name)) { showToast('这个类别已经存在'); return; } if (!transact(draft => { draft.wardrobeCategories = [...categories, name]; }).ok) { showToast('保存失败'); return; } wardrobeFilter = name; byId('wardrobeCategoryModal').classList.remove('open'); queueCloudSave(); renderWardrobe(); showToast(`已新增类别：${name}`); });
     document.getElementById('wardrobeOutfitModal').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-pick]'); if (!button) return; const select = byId(button.dataset.wardrobePick); if (!select) return; select.value = button.dataset.wardrobePickId; button.parentElement.querySelectorAll('[data-wardrobe-pick]').forEach(item => item.classList.toggle('active', item === button)); });
     byId('wardrobeItemsGrid').addEventListener('click', e => { const card = e.target.closest('[data-wardrobe-item]'); if (card) openWardrobeDetail(card.dataset.wardrobeItem); });
     byId('wardrobeItemsGrid').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { const card = e.target.closest('[data-wardrobe-item]'); if (card) { e.preventDefault(); openWardrobeDetail(card.dataset.wardrobeItem); } } });
@@ -3223,10 +2905,12 @@
         const id = deleteButton.dataset.wardrobeDelete;
         const item = wardrobeItems().find(entry => entry.id === id);
         if (!item || !window.confirm(`确定删除“${item.name}”吗？`)) return;
-        state.wardrobe = wardrobeItems().filter(entry => entry.id !== id);
-        state.wardrobeOutfits = (state.wardrobeOutfits || []).map(outfit => ({ ...outfit, itemIds: (outfit.itemIds || []).filter(itemId => itemId !== id) })).filter(outfit => outfit.itemIds.length >= 2);
-        state.wardrobeWearLogs = (state.wardrobeWearLogs || []).filter(log => !(log.itemIds || []).includes(id));
-        byId('wardrobeDetailModal').classList.remove('open'); saveState(); queueCloudSave(); renderWardrobe(); showToast('衣物已删除'); return;
+        if (!transact(draft => {
+        draft.wardrobe = (draft.wardrobe || []).filter(entry => entry.id !== id);
+        draft.wardrobeOutfits = (draft.wardrobeOutfits || []).map(outfit => ({ ...outfit, itemIds: (outfit.itemIds || []).filter(itemId => itemId !== id) })).filter(outfit => outfit.itemIds.length >= 2);
+        draft.wardrobeWearLogs = (draft.wardrobeWearLogs || []).filter(log => !(log.itemIds || []).includes(id));
+        }).ok) { showToast('保存失败'); return; }
+        byId('wardrobeDetailModal').classList.remove('open'); queueCloudSave(); renderWardrobe(); showToast('衣物已删除'); return;
       }
       const editButton = e.target.closest('[data-wardrobe-edit]');
       if (editButton) {
@@ -3247,10 +2931,10 @@
         byId('wardrobeDetailModal').classList.remove('open'); byId('wardrobeAddModal').classList.add('open');
       }
     });
-    byId('wardrobeWearForm').addEventListener('submit', e => { e.preventDefault(); const id = byId('wardrobeWearItem').value; const item = wardrobeItems().find(entry => entry.id === id); if (!item) return; item.wearCount = Number(item.wearCount || 0) + 1; item.lastWorn = todayISO(); state.wardrobeWearLogs = [...(state.wardrobeWearLogs || []), { id: uid(), itemIds: [id], date: todayISO(), feeling: byId('wardrobeWearFeeling').value }]; byId('wardrobeWearModal').classList.remove('open'); saveState(); queueCloudSave(); wardrobeSwitchTab('overview'); showToast(`已记录：${item.name}`); });
+    byId('wardrobeWearForm').addEventListener('submit', e => { e.preventDefault(); const id = byId('wardrobeWearItem').value; const item = wardrobeItems().find(entry => entry.id === id); if (!item) return; if (!transact(draft => { const entry = draft.wardrobe.find(x => x.id === id); entry.wearCount = Number(entry.wearCount || 0) + 1; entry.lastWorn = todayISO(); draft.wardrobeWearLogs = [...(draft.wardrobeWearLogs || []), {id:uid(),itemIds:[id],date:todayISO(),feeling:byId('wardrobeWearFeeling').value}]; }).ok) { showToast('保存失败'); return; } byId('wardrobeWearModal').classList.remove('open'); queueCloudSave(); wardrobeSwitchTab('overview'); showToast(`已记录：${item.name}`); });
     document.querySelectorAll('[data-wardrobe-create-outfit]').forEach(button => button.addEventListener('click', () => { renderWardrobeSelects(); byId('wardrobeOutfitForm').reset(); byId('wardrobeOutfitModal').classList.add('open'); }));
-    byId('wardrobeOutfitForm').addEventListener('submit', e => { e.preventDefault(); const itemIds = ['wardrobeOutfitTop','wardrobeOutfitBottom','wardrobeOutfitThird'].map(id => byId(id).value).filter(Boolean); if (itemIds.length < 2) { showToast('至少选择两件衣物'); return; } const previousState = structuredClone(state); state.wardrobeOutfits = [...(state.wardrobeOutfits || []), { id: uid(), name: byId('wardrobeOutfitName').value.trim(), itemIds, tag: '我的新搭配', uses: 0 }]; if (!saveState()) { state = previousState; renderAll(); showToast('穿搭保存失败，请稍后重试'); return; } byId('wardrobeOutfitModal').classList.remove('open'); wardrobeSwitchTab('outfits'); showToast('穿搭已保存，正在同步'); });
-    byId('wardrobeDeclutterList').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-decision]'); if (!button) return; const item = wardrobeItems().find(entry => entry.id === button.dataset.wardrobeId); if (!item) return; item.status = button.dataset.wardrobeDecision === 'remove' ? 'removed' : button.dataset.wardrobeDecision; saveState(); queueCloudSave(); renderWardrobe(); showToast(button.dataset.wardrobeDecision === 'remove' ? `${item.name} 已移出衣橱` : `${item.name} 已标记为${button.dataset.wardrobeDecision === 'keep' ? '保留' : '观察'}`); });
+    byId('wardrobeOutfitForm').addEventListener('submit', e => { e.preventDefault(); const itemIds = ['wardrobeOutfitTop','wardrobeOutfitBottom','wardrobeOutfitThird'].map(id => byId(id).value).filter(Boolean); if (itemIds.length < 2) { showToast('至少选择两件衣物'); return; } if (!transact(draft => { draft.wardrobeOutfits = [...(draft.wardrobeOutfits || []), {id:uid(),name:byId('wardrobeOutfitName').value.trim(),itemIds,tag:'我的新搭配',uses:0}]; }).ok) { showToast('穿搭保存失败'); return; } byId('wardrobeOutfitModal').classList.remove('open'); wardrobeSwitchTab('outfits'); showToast('穿搭已保存，正在同步'); });
+    byId('wardrobeDeclutterList').addEventListener('click', e => { const button = e.target.closest('[data-wardrobe-decision]'); if (!button) return; const item = wardrobeItems().find(entry => entry.id === button.dataset.wardrobeId); if (!item) return; if (!transact(draft => { draft.wardrobe.find(x => x.id === item.id).status = button.dataset.wardrobeDecision === 'remove' ? 'removed' : button.dataset.wardrobeDecision; }).ok) { showToast('保存失败'); return; } queueCloudSave(); renderWardrobe(); showToast(button.dataset.wardrobeDecision === 'remove' ? `${item.name} 已移出衣橱` : `${item.name} 已标记为${button.dataset.wardrobeDecision === 'keep' ? '保留' : '观察'}`); });
     byId('wardrobeItemImage').addEventListener('change', e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => { const raw = reader.result; byId('wardrobeItemImage').dataset.data = raw; wardrobeImageCompression = compressWardrobeImage(raw); showToast('照片已读取并优化'); }; reader.readAsDataURL(file); });
     byId('wardrobeAddForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -3260,22 +2944,13 @@
       const image = await wardrobeImageCompression || byId('wardrobeItemImage').dataset.data || '';
       const values = { name: byId('wardrobeItemName').value.trim(), category, color: byId('wardrobeItemColor').value.trim(), style: byId('wardrobeItemStyle').value, season: byId('wardrobeItemSeason').value, image };
       const existingId = wardrobeEditingId;
-      const applyValues = nextValues => {
-        const current = existingId && wardrobeItems().find(item => item.id === existingId);
-        if (current) Object.assign(current, nextValues);
-        else state.wardrobe = [...(state.wardrobe || []), { id: uid(), ...nextValues, wearCount: 0, lastWorn: '', status: 'keep' }];
-      };
-      applyValues(values);
-      let saved = saveState();
-      let imageSaved = saved;
-      if (!saved && image) {
-        state = previousState;
-        applyValues({ ...values, image: '' });
-        saved = saveState();
-        imageSaved = false;
-        if (saved) showToast('衣物已保存，但照片因本机空间不足未保存');
-      }
-      if (!saved) { state = previousState; renderAll(); showToast('保存失败，请稍后重试'); return; }
+      const result = transact(draft => {
+        const current = existingId && (draft.wardrobe || []).find(item => item.id === existingId);
+        if (current) Object.assign(current, values);
+        else draft.wardrobe = [...(draft.wardrobe || []), {id:uid(), ...values, wearCount:0,lastWorn:'',status:'keep'}];
+      });
+      if (!result.ok) { showToast('保存失败，已保留表单'); return; }
+      const imageSaved = true;
       wardrobeEditingId = '';
       byId('wardrobeAddForm').dataset.editCategory = '';
       byId('wardrobeAddModalTitle').textContent = '添加衣物';
@@ -3288,23 +2963,24 @@
     document.querySelector('[data-wardrobe-show-similar]').addEventListener('click', () => { wardrobeFilter = '上装'; document.querySelectorAll('[data-wardrobe-filter]').forEach(item => item.classList.toggle('active', item.dataset.wardrobeFilter === wardrobeFilter)); wardrobeSwitchTab('items'); });
 
     byId('inventoryForm').addEventListener('submit', async e => {
-      e.preventDefault(); syncInventoryCategoryPicker();
+      e.preventDefault();
+      if (!byId('inventoryModal').classList.contains('open') || e.target.dataset.busy === 'true') return;
+      syncInventoryCategoryPicker();
       if (!byId('inventoryCategory').value.trim()) { showToast('请选择分类'); byId('inventoryCategorySelect').focus(); return; }
       const id = byId('inventoryId').value || uid(); const existing = state.inventory.find(i => i.id === id);
       const previousState = structuredClone(state);
       const rawCategory = byId('inventoryCategory').value.trim() || '其他'; const resolvedCategory = resolveInventoryCategory(rawCategory, state.inventoryCategoryParents || {}); const category = resolvedCategory.category; const unit = byId('inventoryUnit').value.trim() || '件'; const isApparel = isApparelInventoryCategory(rawCategory) || isApparelInventoryCategory(category); const isSkincare = isSkincareInventoryCategory(rawCategory) || isSkincareInventoryCategory(category); const typedSubcategory = byId('inventorySubcategory').value.trim(); const subcategory = typedSubcategory || resolvedCategory.child;
       const selectedImage = inventoryImageRemoved ? '' : (inventoryImageData || inventoryImageCache.get(id) || existing?.image || '');
         const item = { id, name: byId('inventoryName').value.trim(), category, subcategory, style: isApparel ? byId('inventoryStyle').value.trim() : '', outfitPairing: isApparel ? byId('inventoryPairing').value.trim() : '', qty: Number(byId('inventoryQty').value), unit, monthlyUsage: Number(byId('inventoryUsage').value), expiry: byId('inventoryExpiry').value, image: '', sourceExpenseId: inventorySourceExpenseId || existing?.sourceExpenseId || '', updatedAt: Date.now() };
-      rememberInventoryCategories(rawCategory, category);
-      state.inventoryUnits = [...new Set([...(state.inventoryUnits || defaultInventoryUnits), unit])];
-      if (existing) Object.assign(existing, item); else state.inventory.push(item);
-      if (!saveState()) {
-        state = previousState; renderAll();
-        const reason = lastPersistError?.name === 'QuotaExceededError' ? '库存已保存，但本机数据空间不足，照片未保存。' : '保存失败，请重新打开页面后重试';
+      const result = transact(draft => { InventoryOps.upsert(draft, item); draft.inventoryCategories = inventoryCategoryNames(draft.inventoryCategories, [rawCategory, category]); });
+      if (!result.ok) {
+        const reason = result.error?.message || '保存失败，已保留表单内容';
         showToast(reason); return;
       }
-      try { if (selectedImage) await saveInventoryImage(id, selectedImage); else await deleteInventoryImage(id); } catch { showToast('库存已保存，但照片暂未保存'); }
-      e.target.reset(); inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryAdvancedFields').open = false; byId('inventoryId').value = ''; populateInventoryCategoryPicker(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); renderInventory(); renderAttention(); showToast(selectedImage ? '库存和照片已保存' : '库存已保存');
+      e.target.dataset.busy = 'true'; const submit = e.target.querySelector('button[type=submit]'); if (submit) submit.disabled = true;
+      let imageSaved = true;
+      try { if (selectedImage) await saveInventoryImage(id, selectedImage); else await deleteInventoryImage(id); } catch { imageSaved = false; } finally { e.target.dataset.busy = 'false'; if (submit) submit.disabled = false; }
+      e.target.reset(); inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = ''; setInventoryImagePreview(''); byId('inventoryAdvancedFields').open = false; byId('inventoryId').value = ''; populateInventoryCategoryPicker(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryModalTitle').textContent = '添加库存'; byId('inventoryModal').classList.remove('open'); renderInventoryInputs(); renderInventory(); renderAttention(); showToast(!imageSaved ? '库存已保存，但照片暂未保存' : selectedImage ? '库存和照片已保存' : '库存已保存');
     });
     byId('inventoryImage').addEventListener('change', async e => {
       const input = e.target;
@@ -3328,15 +3004,15 @@
     byId('clearInventoryImagesBtn').addEventListener('click', () => {
       const count = state.inventory.filter(item => item.image || inventoryImageCache.has(item.id)).length;
       if (!count || !confirm(`移除全部 ${count} 张库存照片？库存记录会保留。`)) return;
-      state.inventory.forEach(item => { item.image = ''; });
-      clearInventoryImages().then(() => { saveState(); renderInventory(); renderAttention(); showToast(`已移除 ${count} 张库存照片`); }).catch(() => showToast('照片清理失败，请稍后重试'));
+      if (!transact(draft => draft.inventory.forEach(item => InventoryOps.removeImage(draft, item.id))).ok) { showToast('保存失败'); return; }
+      clearInventoryImages().then(() => { renderInventory(); renderAttention(); showToast(`已移除 ${count} 张库存照片`); }).catch(() => showToast('照片清理失败，请稍后重试'));
     });
     byId('inventoryList').addEventListener('click', e => {
       const groupToggle = e.target.closest('[data-toggle-inventory-group]');
       const more = e.target.closest('[data-toggle-inventory-actions]');
       const edit = e.target.closest('[data-edit-inventory]'); const returnBtn = e.target.closest('[data-return-inventory]'); const del = e.target.closest('[data-delete-inventory]'); const removeImage = e.target.closest('[data-remove-inventory-image]'); const adjust = e.target.closest('[data-adjust-inventory]');
       if (returnBtn) { const item = state.inventory.find(x => x.id === returnBtn.dataset.returnInventory); if (!item) return; byId('returnInventoryId').value = item.id; byId('returnExpenseId').value = ''; byId('returnInventoryModalTitle').textContent = '从库存办理退货'; byId('returnInventoryName').textContent = `${item.name} · 当前库存 ${item.qty} ${item.unit || '件'}`; byId('returnInventoryQty').max = Math.max(0, Number(item.qty)); byId('returnInventoryQty').value = Number(item.qty); byId('returnInventoryAmount').value = sourceExpenseAmount(item); byId('returnInventoryNote').value = ''; byId('returnInventoryModal').classList.add('open'); setTimeout(() => byId('returnInventoryQty').focus(), 50); return; }
-      if (adjust) { const item = state.inventory.find(x => x.id === adjust.dataset.adjustInventory); if (item) { item.qty = Math.max(0, Number(item.qty || 0) + Number(adjust.dataset.adjustDelta || 0)); saveState(); showToast(`${item.name} 数量已更新`); } return; }
+      if (adjust) { const item = state.inventory.find(x => x.id === adjust.dataset.adjustInventory); if (item) { const result = transact(draft => InventoryOps.adjust(draft, item.id, Number(adjust.dataset.adjustDelta || 0))); showToast(result.ok ? `${item.name} 数量已更新` : result.error?.message || '保存失败'); } return; }
       if (groupToggle) {
         const category = groupToggle.dataset.toggleInventoryGroup;
         const group = groupToggle.closest('[data-inventory-group]');
@@ -3354,18 +3030,23 @@
         return;
       }
       if (edit) { const i = state.inventory.find(x => x.id === edit.dataset.editInventory); inventoryImageRemoved = false; inventoryImageData = inventoryImageCache.get(i.id) || i.image || ''; setInventoryImagePreview(inventoryImageData); byId('inventoryId').value = i.id; byId('inventoryName').value = i.name; populateInventoryCategoryPicker(i.category, i.subcategory || ''); byId('inventoryStyle').value = i.style || ''; byId('inventoryPairing').value = i.outfitPairing || ''; syncInventoryApparelFields(); byId('inventoryQty').value = i.qty; byId('inventoryUnit').value = i.unit || '件'; byId('inventoryUsage').value = i.monthlyUsage; byId('inventoryExpiry').value = i.expiry; byId('inventoryAdvancedFields').open = Boolean(inventoryImageData || i.subcategory || i.style || i.outfitPairing || i.expiry || Number(i.monthlyUsage) !== 1); byId('inventoryModalTitle').textContent = '编辑库存'; byId('inventoryModal').classList.add('open'); }
-      if (removeImage && confirm('只移除这件库存的照片？库存记录会保留。')) { const item = state.inventory.find(x => x.id === removeImage.dataset.removeInventoryImage); if (item) { item.image = ''; deleteInventoryImage(item.id).then(() => { saveState(); showToast('库存照片已移除'); }).catch(() => showToast('照片移除失败，请稍后重试')); } }
-      if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; state.inventory = state.inventory.filter(i => i.id !== deletedId); state.inventoryTombstones = { ...(state.inventoryTombstones || {}), [deletedId]: Date.now() }; deleteInventoryImage(deletedId).then(() => { saveState(); renderInventory(); renderAttention(); showToast('库存记录已删除'); }).catch(() => { saveState(); renderInventory(); renderAttention(); }); }
+      if (removeImage && confirm('只移除这件库存的照片？库存记录会保留。')) { const item = state.inventory.find(x => x.id === removeImage.dataset.removeInventoryImage); if (item) { if (!transact(draft => InventoryOps.removeImage(draft, item.id)).ok) { showToast('保存失败'); return; } deleteInventoryImage(item.id).then(() => { showToast('库存照片已移除'); }).catch(() => showToast('照片移除失败，请稍后重试')); } }
+      if (del && confirm('删除这条库存记录？')) { const deletedId = del.dataset.deleteInventory; const result = transact(draft => InventoryOps.remove(draft, deletedId)); if (!result.ok) { showToast(result.error?.message || '删除失败'); return; } deleteInventoryImage(deletedId).catch(() => {}); showToast('库存记录已删除'); }
     });
     byId('quickExpenseBtn').addEventListener('click', () => { byId('expenseModal').classList.add('open'); setTimeout(() => byId('expenseAmount').focus(), 50); });
     function openReturnFromExpense(expense) { if (!expense || Number(expense.amount) <= 0 || expense.returned || state.expenses.some(item => item.sourceExpenseId === expense.id && (Number(item.amount) < 0 || item.kind === 'refund'))) { showToast('这笔消费已经记录退款，不能重复退货'); return; } const item = state.inventory.find(x => x.sourceExpenseId === expense.id); byId('returnExpenseId').value = expense.id; byId('returnInventoryId').value = item?.id || ''; byId('returnInventoryModalTitle').textContent = '从账单办理退货'; byId('returnInventoryName').textContent = item ? `${expense.name || '消费'} · 当前库存 ${item.qty} ${item.unit || '件'}` : `${expense.name || '消费'} · 未关联库存`; byId('returnInventoryQty').max = item ? Math.max(0, Number(item.qty)) : 1; byId('returnInventoryQty').value = item ? Number(item.qty) : 1; byId('returnInventoryQty').disabled = !item; byId('returnInventoryAmount').value = Number(expense.amount).toFixed(2); byId('returnInventoryNote').value = ''; byId('returnInventoryModal').classList.add('open'); setTimeout(() => byId('returnInventoryAmount').focus(), 50); }
     function sourceExpenseAmount(item) { const source = state.expenses.find(x => x.id === item?.sourceExpenseId); return source && Number(source.amount) > 0 ? Number(source.amount).toFixed(2) : ''; }
-    byId('returnInventoryForm').addEventListener('submit', e => { e.preventDefault(); const submit = e.submitter || e.querySelector('button[type=submit]'); if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; } const expense = state.expenses.find(x => x.id === byId('returnExpenseId').value); const item = state.inventory.find(x => x.id === byId('returnInventoryId').value); const qty = Number(byId('returnInventoryQty').value); const amount = Number(byId('returnInventoryAmount').value); const alreadyRefunded = expense && (expense.returned || state.expenses.some(x => x.sourceExpenseId === expense.id && (Number(x.amount) < 0 || x.kind === 'refund'))); const priorRefund = expense ? state.expenses.filter(x => x.sourceExpenseId === expense.id && (Number(x.amount) < 0 || x.kind === 'refund')).reduce((sum, x) => sum + Math.abs(Number(x.amount)), 0) : 0; if (alreadyRefunded) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('这笔消费已经记录退款，不能重复退货'); return; } if (!expense || !/^\d+(?:\.\d{1,2})?$/.test(byId('returnInventoryAmount').value.trim()) || !Number.isFinite(amount) || amount <= 0 || amount > Number(expense.amount) - priorRefund || (!Number.isFinite(qty) || qty <= 0)) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('请检查退货数量和退款金额'); return; } const before = snapshotState(); const deductedQty = item ? Math.min(Number(item.qty || 0), qty) : 0; if (item) item.qty = Math.max(0, Number(item.qty) - deductedQty); expense.returned = amount + priorRefund >= Number(expense.amount); expense.returnedAt = todayISO(); state.expenses.push({ id: uid(), name: `${expense.name || '消费'}退货${byId('returnInventoryNote').value.trim() ? `（${byId('returnInventoryNote').value.trim()}）` : ''}`, amount: -amount, kind: 'refund', qty: deductedQty, requestedQty: qty, platform: expense.platform || '其他', category: expense.category || '其他', date: expense.date, refundedAt: todayISO(), fromInventory: Boolean(item), sourceInventoryId: item?.id || '', sourceExpenseId: expense.id }); if (!saveState()) { restoreSnapshot(before); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('保存失败，已保留表单内容'); return; } byId('returnInventoryModal').classList.remove('open'); renderAll(); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast(item ? '已退货、扣减库存并记录退款' : '已记录退款'); });
+    byId('returnInventoryForm').addEventListener('submit', e => {
+      e.preventDefault(); if (!byId('returnInventoryModal').classList.contains('open')) return;
+      const result = transact(draft => RefundOps.add(draft, {sourceExpenseId:byId('returnExpenseId').value, qty:byId('returnInventoryQty').value, amount:byId('returnInventoryAmount').value, note:byId('returnInventoryNote').value.trim()}));
+      if (!result.ok) { showToast(result.error?.message || '保存失败，已保留表单内容'); return; }
+      byId('returnInventoryModal').classList.remove('open'); showToast('已记录退款并更新库存');
+    });
     byId('expenseKind').addEventListener('change', () => { const refund = byId('expenseKind').value === 'refund'; const box = byId('expenseAddToInventory'); box.disabled = refund; if (refund) { box.checked = false; byId('expenseInventoryHint').textContent = '退款不能加入库存'; } else byId('expenseInventoryHint').textContent = '保存后可补充数量和使用速度'; });
     byId('expenseForm').addEventListener('submit', e => {
       e.preventDefault();
-      if (e.submitter?.dataset.busy === 'true') return;
-      const submit = e.submitter || e.querySelector('button[type=submit]'); if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
+      if (!byId('expenseModal').classList.contains('open') || e.submitter?.dataset.busy === 'true') return;
+      const submit = e.submitter || e.target.querySelector('button[type=submit]'); if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
       const kind = byId('expenseKind').value;
       const amountText = byId('expenseAmount').value.trim();
       const rawAmount = Number(amountText);
@@ -3378,15 +3059,17 @@
       const typedName = byId('expenseName').value.trim();
       const usedDefaultName = !typedName;
       const expense = { id: uid(), name: typedName || (kind === 'refund' ? '退款' : '日常消费'), amount: kind === 'refund' ? -rawAmount : rawAmount, kind, platform: byId('expensePlatform').value, category: byId('expenseCategory').value, date: byId('expenseDate').value, fromLive: false };
-      state.expenses.push(expense);
+      const saved = transact(draft => ExpenseOps.add(draft, expense));
+      if (!saved.ok) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast(saved.error?.message || '保存失败，已保留表单内容'); return; }
       const addToInventory = byId('expenseAddToInventory').checked && kind === 'expense';
-      e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseAddToInventory').disabled = false; byId('expenseInventoryHint').textContent = '保存后可补充数量和使用速度'; byId('expenseModal').classList.remove('open'); saveState(); renderAll();
+      e.target.reset(); byId('expenseDate').value = todayISO(); byId('expenseAddToInventory').disabled = false; byId('expenseInventoryHint').textContent = '保存后可补充数量和使用速度'; byId('expenseModal').classList.remove('open');
       if (addToInventory) openInventoryFromExpense(expense); else showToast(kind === 'refund' ? '退款已记录' : '消费已记录');
       if (usedDefaultName) showToast(`未填写商品名称，已使用“${expense.name}”`);
-      const resetSubmit = e.querySelector('button[type=submit]'); if (resetSubmit) { resetSubmit.dataset.busy = 'false'; resetSubmit.disabled = false; }
+      const resetSubmit = e.target.querySelector('button[type=submit]'); if (resetSubmit) { resetSubmit.dataset.busy = 'false'; resetSubmit.disabled = false; }
     });
     function openInventoryFromExpense(expense) {
       if (!expense || Number(expense.amount) <= 0) return;
+      if (state.expenses.some(x => x.sourceExpenseId === expense.id && (Number(x.amount) < 0 || x.kind === 'refund'))) { showToast('请先撤销退货，再加入库存'); return; }
       if (state.inventory.some(item => item.sourceExpenseId === expense.id)) { showToast('这笔消费已经加入库存'); return; }
       inventoryImageData = ''; inventoryImageRemoved = false; inventorySourceExpenseId = expense.id; setInventoryImagePreview('');
       byId('inventoryForm').reset(); byId('inventoryAdvancedFields').open = false; byId('inventoryId').value = ''; byId('inventoryName').value = expense.name || ''; populateInventoryCategoryPicker(expense.category || '其他'); byId('inventoryStyle').value = ''; byId('inventoryPairing').value = ''; syncInventoryApparelFields(); byId('inventoryQty').value = 1; byId('inventoryUnit').value = '件'; byId('inventoryUsage').value = 1; byId('inventoryExpiry').value = ''; byId('inventoryModalTitle').textContent = '从账单加入库存'; byId('inventoryModal').classList.add('open');
@@ -3394,7 +3077,6 @@
     let editRefundAmountTouched = false;
     let editRefundUnitPrice = 0;
     function snapshotState() { return structuredClone(state); }
-    function restoreSnapshot(before) { state = before; renderAll(); }
     function openEditRefund(refund) {
       const purchase = state.expenses.find(x => x.id === refund?.sourceExpenseId); if (!refund || !purchase) return;
       const item = refund.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
@@ -3413,31 +3095,23 @@
       byId('revokeRefundModal').classList.add('open'); setTimeout(() => byId('revokeRefundQty').focus(), 50);
     }
     function revokeRefund(refund, restoreQty) {
-      const before = snapshotState(); const purchase = state.expenses.find(x => x.id === refund?.sourceExpenseId);
-      const item = refund?.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
-      if (!refund || !Number.isFinite(restoreQty) || restoreQty < 0 || restoreQty > 100000) return false;
-      if (item && restoreQty > 0) item.qty = Number(item.qty || 0) + restoreQty;
-      if (purchase) purchase.returned = false;
-      state.expenses = state.expenses.filter(x => x.id !== refund.id);
-      if (!saveState()) { restoreSnapshot(before); return false; }
-      byId('revokeRefundModal').classList.remove('open'); showToast(refund.sourceInventoryId && !item ? '原库存不存在，已撤销退款和退货状态' : '已撤销退货并恢复库存'); return true;
+      const result = transact(draft => RefundOps.revoke(draft, refund?.id, restoreQty));
+      if (!result.ok) { showToast(result.error?.message || '保存失败，已保留表单内容'); return false; }
+      byId('revokeRefundModal').classList.remove('open');
+      showToast(result.value.missingInventory ? '原库存不存在，已撤销退款和退货状态' : '已撤销退货并恢复库存'); return true;
     }
     byId('editRefundQty').addEventListener('input', () => { if (!editRefundAmountTouched && editRefundUnitPrice > 0) byId('editRefundAmount').value = (Number(byId('editRefundQty').value || 0) * editRefundUnitPrice).toFixed(2); });
     byId('editRefundAmount').addEventListener('input', () => { editRefundAmountTouched = true; });
     byId('editRefundForm').addEventListener('submit', e => {
-      e.preventDefault(); const submit = e.submitter; if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
-      const refund = state.expenses.find(x => x.id === byId('editRefundId').value); const purchase = state.expenses.find(x => x.id === refund?.sourceExpenseId); const item = refund?.sourceInventoryId ? state.inventory.find(x => x.id === refund.sourceInventoryId) : null;
-      const qtyText = byId('editRefundQty').value.trim(); const amountText = byId('editRefundAmount').value.trim(); const qty = Number(qtyText); const amount = Number(amountText); const oldQty = refund?.qty == null ? 0 : Number(refund.qty);
-      const invalid = !refund || !purchase || !/^\d+(?:\.\d{1,2})?$/.test(amountText) || !Number.isFinite(amount) || amount <= 0 || amount > Number(purchase.amount) || !/^\d+(?:\.\d{1,3})?$/.test(qtyText) || !Number.isFinite(qty) || qty < 0 || qty > 100000 || (item && qty - oldQty > Number(item.qty || 0));
-      if (invalid) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('退款数量或金额不合理'); return; }
-      const before = snapshotState(); if (item) item.qty = Math.max(0, Number(item.qty || 0) - (qty - oldQty)); refund.qty = qty; refund.amount = -amount; refund.date = purchase.date; refund.refundedAt = refund.refundedAt || todayISO(); purchase.returned = amount >= Number(purchase.amount);
-      if (!saveState()) { restoreSnapshot(before); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('保存失败，已保留表单内容'); return; }
-      byId('editRefundModal').classList.remove('open'); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('退款已更新');
+      e.preventDefault(); if (!byId('editRefundModal').classList.contains('open')) return;
+      const result = transact(draft => RefundOps.edit(draft, byId('editRefundId').value, {qty:byId('editRefundQty').value, amount:byId('editRefundAmount').value}));
+      if (!result.ok) { showToast(result.error?.message || '保存失败，已保留表单内容'); return; }
+      byId('editRefundModal').classList.remove('open'); showToast('退款已更新');
     });
     byId('revokeRefundForm').addEventListener('submit', e => {
       e.preventDefault(); const submit = e.submitter; if (submit?.dataset.busy === 'true') return; if (submit) { submit.dataset.busy = 'true'; submit.disabled = true; }
       const refund = state.expenses.find(x => x.id === byId('revokeRefundId').value); const text = byId('revokeRefundQty').value.trim(); const qty = Number(text); if (!/^\d+(?:\.\d{1,3})?$/.test(text) || !Number.isFinite(qty) || qty < 0 || qty > 100000) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('恢复数量必须是大于等于 0 的有效数字'); return; }
-      if (!revokeRefund(refund, qty) && submit) { submit.dataset.busy = 'false'; submit.disabled = false; }
+      revokeRefund(refund, qty); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; }
     });
     document.querySelectorAll('#expenseList, #historyExpenseList, #recentPurchases').forEach(list => list.addEventListener('click', e => {
       const editRefundBtn = e.target.closest('[data-edit-refund]'); if (editRefundBtn) { openEditRefund(state.expenses.find(x => x.id === editRefundBtn.dataset.editRefund)); return; }
@@ -3447,7 +3121,7 @@
       const add = e.target.closest('[data-add-to-inventory]');
       if (add) openInventoryFromExpense(state.expenses.find(item => item.id === add.dataset.addToInventory));
       const del = e.target.closest('[data-delete-expense]');
-      if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; const deleted = state.expenses.find(x => x.id === deletedId); if (deleted?.sourceExpenseId && (Number(deleted.amount) < 0 || deleted.kind === 'refund')) { if (deleted.qty == null) openRevokeRefund(deleted); else revokeRefund(deleted, Number(deleted.qty)); return; } state.expenses = state.expenses.filter(x => x.id !== deletedId); state.expenseTombstones = { ...(state.expenseTombstones || {}), [deletedId]: Date.now() }; saveState(); renderAll(); showToast('消费记录已删除，关联库存已保留'); }
+      if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; const deleted = state.expenses.find(x => x.id === deletedId); if (deleted?.sourceExpenseId && (Number(deleted.amount) < 0 || deleted.kind === 'refund')) { if (deleted.qty == null) openRevokeRefund(deleted); else revokeRefund(deleted, Number(deleted.qty)); return; } const result = transact(draft => ExpenseOps.remove(draft, deletedId)); showToast(result.ok ? '消费记录已删除，关联库存已保留' : result.error?.message || '删除失败'); }
     }));
     function shiftHistoryPeriod(direction) {
       const date = localDate(historyAnchorISO);
@@ -3457,23 +3131,23 @@
       else if (historyPeriod === 'custom') { const start = localDate(byId('historyStartDate').value || historyAnchorISO); const end = localDate(byId('historyEndDate').value || historyAnchorISO); const days = Math.max(1, Math.round((end - start) / 86400000) + 1); start.setDate(start.getDate() + direction * days); end.setDate(end.getDate() + direction * days); byId('historyStartDate').value = dateISO(start); byId('historyEndDate').value = dateISO(end); }
       historyAnchorISO = dateISO(date); renderHistory();
     }
-    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; historyAnchorISO = todayISO(); localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { byId('historyStartDate').value ||= dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); byId('historyEndDate').value ||= todayISO(); } renderHistory(); }));
-    document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => { historyTrendPeriod = button.dataset.trendPeriod; localStorage.setItem('slow-buy-history-trend-period', historyTrendPeriod); renderHistory(); }));
-    byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); renderHistory(); });
-    byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); renderHistory(); });
-    byId('historyPrevBtn').addEventListener('click', () => { shiftHistoryPeriod(-1); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); } });
-    byId('historyNextBtn').addEventListener('click', () => { shiftHistoryPeriod(1); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); } });
-    byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); state.monthlyBudget = Number(byId('monthlyBudget').value); saveState(); showToast('预算已保存'); });
+    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; historyAnchorISO = todayISO(); setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { byId('historyStartDate').value ||= dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); byId('historyEndDate').value ||= todayISO(); } renderHistory(); }));
+    document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => { historyTrendPeriod = button.dataset.trendPeriod; setPreference('slow-buy-history-trend-period', historyTrendPeriod); renderHistory(); }));
+    byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-start', byId('historyStartDate').value); renderHistory(); });
+    byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-end', byId('historyEndDate').value); renderHistory(); });
+    byId('historyPrevBtn').addEventListener('click', () => { shiftHistoryPeriod(-1); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); } });
+    byId('historyNextBtn').addEventListener('click', () => { shiftHistoryPeriod(1); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); } });
+    byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); if (!transact(draft => { draft.monthlyBudget = Number(byId('monthlyBudget').value); }).ok) { showToast('保存失败'); return; } showToast('预算已保存'); });
     byId('hostForm').addEventListener('submit', e => {
       e.preventDefault(); const id = byId('hostId').value || uid(); const existing = state.hosts.find(h => h.id === id);
       const item = { id, name: byId('hostName').value.trim(), perLiveBudget: Number(byId('hostBudget').value), funBudget: Number(byId('hostFunBudget').value), stockCap: Number(byId('hostStockCap').value), sessionSpent: existing?.sessionSpent || 0, sessionDate: existing?.sessionDate || todayISO() };
-      if (existing) Object.assign(existing, item); else state.hosts.push(item);
-      e.target.reset(); byId('hostId').value = ''; byId('hostBudget').value = 500; byId('hostFunBudget').value = 200; byId('hostStockCap').value = 6; byId('hostModalTitle').textContent = '添加主播规则'; byId('hostModal').classList.remove('open'); saveState(); showToast('主播规则已保存');
+      if (!transact(draft => { const target = draft.hosts.find(h => h.id === id); if (target) Object.assign(target, item); else draft.hosts.push(item); }).ok) { showToast('保存失败'); return; }
+      e.target.reset(); byId('hostId').value = ''; byId('hostBudget').value = 500; byId('hostFunBudget').value = 200; byId('hostStockCap').value = 6; byId('hostModalTitle').textContent = '添加主播规则'; byId('hostModal').classList.remove('open'); showToast('主播规则已保存');
     });
     byId('hostList').addEventListener('click', e => {
       const edit = e.target.closest('[data-edit-host]'); const reset = e.target.closest('[data-reset-session]');
       if (edit) { const h = state.hosts.find(x => x.id === edit.dataset.editHost); byId('hostId').value = h.id; byId('hostName').value = h.name; byId('hostBudget').value = h.perLiveBudget; byId('hostFunBudget').value = h.funBudget; byId('hostStockCap').value = h.stockCap; byId('hostModalTitle').textContent = '编辑主播规则'; byId('hostModal').classList.add('open'); }
-      if (reset) { const h = state.hosts.find(x => x.id === reset.dataset.resetSession); h.sessionSpent = 0; h.sessionDate = todayISO(); saveState(); showToast('新一场直播已开始'); }
+      if (reset) { const h = state.hosts.find(x => x.id === reset.dataset.resetSession); if (!transact(draft => { const host = draft.hosts.find(x => x.id === h.id); host.sessionSpent = 0; host.sessionDate = todayISO(); }).ok) { showToast('保存失败'); return; } showToast('新一场直播已开始'); }
     });
     byId('exportBtn').addEventListener('click', () => {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `慢慢买备份-${todayISO()}.json`; a.click(); URL.revokeObjectURL(url);
@@ -3481,12 +3155,12 @@
     byId('restoreAutoBackupBtn').addEventListener('click', async () => {
       const backup = await latestOfflineBackup(currentStoreKey);
       if (!backup) { showToast('当前还没有可恢复的自动备份'); return; }
-      state = mergeState(state, backup);
-      saveState();
+      const result = importBackup(backup);
+      if (!result.ok) { showToast(result.error.message); return; }
       showToast(`已恢复并合并最近版本，共 ${wardrobeItems().length} 件衣物`);
     });
     byId('importBtn').addEventListener('click', () => byId('importFile').click());
-    byId('importFile').addEventListener('change', async e => { try { const data = JSON.parse(await e.target.files[0].text()); if (!data.hosts || !data.expenses || !data.inventory) throw new Error(); localStorage.setItem(currentStoreKey, JSON.stringify(data)); state = loadState(currentStoreKey); saveState(); showToast('备份已恢复'); } catch { alert('这个备份文件无法读取'); } e.target.value = ''; });
+    byId('importFile').addEventListener('change', async e => { try { const data = JSON.parse(await e.target.files[0].text()); if (!data.hosts || !data.expenses || !data.inventory) throw new Error(); const result = importBackup(data); if (!result.ok) throw result.error; showToast('备份已合并恢复'); } catch { alert('这个备份文件无法读取'); } e.target.value = ''; });
     byId('openAuthDrawerBtn').addEventListener('click', openAuthDrawer);
     byId('authDrawerClose').addEventListener('click', closeAuthDrawer);
     byId('authDrawer').addEventListener('click', e => { if (e.target.id === 'authDrawer') closeAuthDrawer(); });
@@ -3568,12 +3242,12 @@
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     updateDecisionStep(1);
     byId('expenseDate').value = todayISO();
-    byId('historyStartDate').value = localStorage.getItem('slow-buy-history-start') || dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-    byId('historyEndDate').value = localStorage.getItem('slow-buy-history-end') || todayISO();
+    byId('historyStartDate').value = getPreference('slow-buy-history-start') || dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    byId('historyEndDate').value = getPreference('slow-buy-history-end') || todayISO();
     renderAll();
     hydrateOfflineState(currentStoreKey);
     if (window.lucide) iconRefresh();
-    if (hasSyncConfig() && localStorage.getItem('slow-buy-account-scope-v1')) refreshAuthUser().then(user => {
+    if (hasSyncConfig() && getPreference('slow-buy-account-scope-v1')) refreshAuthUser().then(user => {
       if (!user) { activateGuestState(); renderAll(); }
       setAuthStatus();
       if (user) { renderAll(); return pullCloudState().then(startAutoSync); }
