@@ -65,6 +65,8 @@
     .history-summary { margin-top: 12px; }
     .history-chart { margin-top: 12px; padding: 12px 10px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
     .history-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .history-trend-switch { display: flex; flex-shrink: 0; gap: 4px; background: var(--bg); border-radius: 6px; padding: 3px; }
+    .history-trend-switch button { padding: 0 12px; }
     .history-chart-title { font-size: 14px; font-weight: 600; }
     .history-chart-svg { display: block; height: 220px; max-width: none; overflow: visible; }
     .history-chart-empty { height: 220px; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
@@ -948,7 +950,8 @@
       </div>
       <p class="muted small" id="historyRangeLabel" style="margin:10px 0 8px"></p>
       <div class="analysis-card">
-        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">月度趋势</span><span class="muted small">全部历史 · 净支出</span></div>
+        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">每月支出合计趋势</span><div class="history-trend-switch" role="group" aria-label="趋势汇总维度"><button class="segment-btn" type="button" data-trend-period="week" aria-pressed="false">按周</button><button class="segment-btn active" type="button" data-trend-period="month" aria-pressed="true">按月</button></div></div>
+        <div class="muted small">全部历史 · 净支出（消费减退款）· 独立于上方账单日期筛选</div>
         <div class="history-chart-plot" id="historyChart" aria-label="历史消费趋势图"></div>
       </div>
       <div class="section-head">
@@ -2414,6 +2417,7 @@
       byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
     }
     let historyPeriod = localStorage.getItem('slow-buy-history-period') || 'month';
+    let historyTrendPeriod = localStorage.getItem('slow-buy-history-trend-period') === 'week' ? 'week' : 'month';
     let historyAnchorISO = localStorage.getItem('slow-buy-history-anchor') || todayISO();
     function localDate(iso) { const [year, month, day] = String(iso || todayISO()).split('-').map(Number); return new Date(year, month - 1, day); }
     function historyRange(period, anchorISO) {
@@ -2486,9 +2490,9 @@
     }
     function renderHistoryChart(period, expenses) {
       const chart = byId('historyChart'); const buckets = historyChartBuckets(period, expenses);
-      const titles = { day: '每日趋势', week: '每周趋势', month: '每月趋势', quarter: '每季度趋势', year: '每年趋势' };
+      const titles = { day: '每日趋势', week: '每周支出合计趋势', month: '每月支出合计趋势', quarter: '每季度趋势', year: '每年趋势' };
       byId('historyChartTitle').textContent = titles[period] || '消费趋势';
-      if (!buckets.length || !expenses.length) { chart.innerHTML = '<div class="history-chart-empty">这个区间还没有数据</div>'; return; }
+      if (!buckets.length || !expenses.length) { chart.innerHTML = '<div class="history-chart-empty">还没有消费记录，记一笔后查看趋势</div>'; return; }
       const width = Math.max(640, buckets.length * 46 + 60); const height = 220; const pad = { top: 24, right: 24, bottom: 34, left: 48 }; const plotWidth = width - pad.left - pad.right; const plotHeight = height - pad.top - pad.bottom;
       const values = buckets.map(bucket => bucket.value); const min = Math.min(0, ...values); const max = Math.max(0, ...values); const span = max - min || 1; const y = value => pad.top + (max - value) / span * plotHeight; const x = index => buckets.length === 1 ? pad.left + plotWidth / 2 : pad.left + index / (buckets.length - 1) * plotWidth;
       const points = buckets.map((bucket, index) => `${x(index).toFixed(1)},${y(bucket.value).toFixed(1)}`).join(' '); const zeroY = y(0); const labelStep = buckets.length > 14 ? Math.ceil(buckets.length / 8) : 1;
@@ -2511,7 +2515,8 @@
       byId('expenseMonthSpent').textContent = money(purchaseTotal - refundTotal);
       byId('billCompareText').textContent = historyLabel(historyPeriod, range);
       byId('historyRangeLabel').textContent = `${historyLabel(historyPeriod, range)} · ${items.length} 笔记录`;
-      renderHistoryChart(historyPeriod === 'today' || historyPeriod === 'custom' || historyPeriod === 'prevMonth' ? 'day' : historyPeriod, items);
+      renderHistoryChart(historyTrendPeriod, state.expenses);
+      document.querySelectorAll('[data-trend-period]').forEach(button => { const active = button.dataset.trendPeriod === historyTrendPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
       const grouped = new Map();
       items.forEach(item => { if (!grouped.has(item.date)) grouped.set(item.date, []); grouped.get(item.date).push(item); });
       byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(dayItems.reduce((sum, item) => sum + Number(item.amount), 0))}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
@@ -3453,6 +3458,7 @@
       historyAnchorISO = dateISO(date); renderHistory();
     }
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; historyAnchorISO = todayISO(); localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { byId('historyStartDate').value ||= dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); byId('historyEndDate').value ||= todayISO(); } renderHistory(); }));
+    document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => { historyTrendPeriod = button.dataset.trendPeriod; localStorage.setItem('slow-buy-history-trend-period', historyTrendPeriod); renderHistory(); }));
     byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); renderHistory(); });
     byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); renderHistory(); });
     byId('historyPrevBtn').addEventListener('click', () => { shiftHistoryPeriod(-1); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); } });
