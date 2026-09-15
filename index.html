@@ -54,7 +54,11 @@
     .summary { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 2px 9px rgba(32,34,31,.035); }
     .summary strong { display: block; margin-top: 5px; font-size: 18px; overflow-wrap: anywhere; }
     .summary span { font-size: 14px; color: var(--muted); }
-    .history-controls { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 10px; align-items: end; }
+    .history-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+    .history-periods { min-width: 0; }
+    .history-custom-date { display: flex; gap: 8px; grid-column: 1 / -1; }
+    .history-custom-date label { min-width: 0; }
+    .history-nav { display: flex; gap: 4px; }
     .segmented { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 4px; background: var(--surface-2); border-radius: 8px; }
     .segment-btn { min-height: 38px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-weight: 600; }
     .segment-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(32,34,31,.12); }
@@ -188,7 +192,8 @@
     @media (max-width: 390px) {
       .summary-grid { grid-template-columns: 1fr 1fr; }
       .summary:last-child { grid-column: span 2; }
-      .history-controls { grid-template-columns: 1fr; }
+      .history-controls { grid-template-columns: minmax(0, 1fr) auto; }
+      .history-custom-date { flex-wrap: wrap; }
       .form-grid { grid-template-columns: 1fr; }
       .span-2 { grid-column: span 1; }
     }
@@ -926,14 +931,15 @@
       </div>
       <div class="section-head"><h2>消费趋势</h2><span class="pill">可拖动查看</span></div>
       <div class="history-controls">
-        <div class="segmented" role="group" aria-label="统计周期">
-          <button class="segment-btn" type="button" data-history-period="day" aria-pressed="false">日</button>
-          <button class="segment-btn" type="button" data-history-period="week" aria-pressed="false">周</button>
-          <button class="segment-btn active" type="button" data-history-period="month" aria-pressed="true">月</button>
-          <button class="segment-btn" type="button" data-history-period="quarter" aria-pressed="false">季度</button>
-          <button class="segment-btn" type="button" data-history-period="year" aria-pressed="false">年</button>
+        <div class="segmented history-periods" role="group" aria-label="统计周期">
+          <button class="segment-btn" type="button" data-history-period="today" aria-pressed="false">今天</button>
+          <button class="segment-btn" type="button" data-history-period="week" aria-pressed="false">本周</button>
+          <button class="segment-btn active" type="button" data-history-period="month" aria-pressed="true">本月</button>
+          <button class="segment-btn" type="button" data-history-period="prevMonth" aria-pressed="false">上月</button>
+          <button class="segment-btn" type="button" data-history-period="custom" aria-pressed="false">自定义</button>
         </div>
-        <label>统计日期<input id="historyDate" type="date"></label>
+        <div class="history-custom-date" id="historyCustomDate" hidden><label>开始日期<input id="historyStartDate" type="date"></label><label>结束日期<input id="historyEndDate" type="date"></label></div>
+        <div class="history-nav"><button class="btn btn-icon" id="historyPrevBtn" type="button" title="上一个周期" aria-label="上一个周期"><i data-lucide="chevron-left"></i></button><button class="btn btn-icon" id="historyNextBtn" type="button" title="下一个周期" aria-label="下一个周期"><i data-lucide="chevron-right"></i></button></div>
       </div>
       <div class="summary-grid history-summary">
         <div class="summary"><span>消费</span><strong id="historyPurchaseTotal">¥0</strong></div>
@@ -2407,20 +2413,22 @@
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
       byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
     }
-    let historyPeriod = 'month';
+    let historyPeriod = localStorage.getItem('slow-buy-history-period') || 'month';
+    let historyAnchorISO = localStorage.getItem('slow-buy-history-anchor') || todayISO();
     function localDate(iso) { const [year, month, day] = String(iso || todayISO()).split('-').map(Number); return new Date(year, month - 1, day); }
     function historyRange(period, anchorISO) {
       const anchor = localDate(anchorISO); let start = new Date(anchor); let end = new Date(anchor);
+      if (period === 'today') { /* same day */ }
       if (period === 'week') { const offset = (anchor.getDay() + 6) % 7; start.setDate(anchor.getDate() - offset); end = new Date(start); end.setDate(start.getDate() + 6); }
       if (period === 'month') { start.setDate(1); end = new Date(start.getFullYear(), start.getMonth() + 1, 0); }
-      if (period === 'quarter') { const month = Math.floor(anchor.getMonth() / 3) * 3; start = new Date(anchor.getFullYear(), month, 1); end = new Date(anchor.getFullYear(), month + 3, 0); }
-      if (period === 'year') { start = new Date(anchor.getFullYear(), 0, 1); end = new Date(anchor.getFullYear(), 12, 0); }
+      if (period === 'prevMonth') { start = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1); end = new Date(anchor.getFullYear(), anchor.getMonth(), 0); }
+      if (period === 'custom') { const s = localDate(byId('historyStartDate')?.value || anchorISO); const e = localDate(byId('historyEndDate')?.value || anchorISO); start = s <= e ? s : e; end = s <= e ? e : s; }
       return { start, end };
     }
     function historyLabel(period, range) {
       const format = d => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
-      const prefix = period === 'day' ? '日' : period === 'week' ? '周' : period === 'month' ? '月' : period === 'quarter' ? '季度' : '年度';
-      return `${prefix}统计：${format(range.start)}${period === 'day' ? '' : `至${format(range.end)}`}`;
+      const prefix = period === 'today' ? '今天' : period === 'week' ? '本周' : period === 'month' ? '本月' : period === 'prevMonth' ? '上月' : '自定义';
+      return `${prefix}统计：${format(range.start)}${period === 'today' || (range.start.getTime() === range.end.getTime()) ? '' : `至${format(range.end)}`}`;
     }
     function historyChartBuckets(period, expenses) {
       const valid = expenses.filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.date));
@@ -2493,21 +2501,22 @@
       bindHistoryChartTooltip(chart);
     }
     function renderHistory() {
-      const dateInput = byId('historyDate'); if (!dateInput) return;
-      if (!dateInput.value) dateInput.value = todayISO();
-      const range = historyRange(historyPeriod, dateInput.value);
+      const range = historyRange(historyPeriod, historyAnchorISO);
       const items = state.expenses.filter(item => { const date = localDate(item.date); return date >= range.start && date <= range.end; }).sort((a, b) => b.date.localeCompare(a.date));
       const purchaseTotal = items.filter(item => Number(item.amount) > 0).reduce((sum, item) => sum + Number(item.amount), 0);
       const refundTotal = items.filter(item => Number(item.amount) < 0).reduce((sum, item) => sum + Math.abs(Number(item.amount)), 0);
       byId('historyPurchaseTotal').textContent = money(purchaseTotal);
       byId('historyRefundTotal').textContent = money(refundTotal);
       byId('historyNetTotal').textContent = money(purchaseTotal - refundTotal);
+      byId('expenseMonthSpent').textContent = money(purchaseTotal - refundTotal);
+      byId('billCompareText').textContent = historyLabel(historyPeriod, range);
       byId('historyRangeLabel').textContent = `${historyLabel(historyPeriod, range)} · ${items.length} 笔记录`;
-      renderHistoryChart(historyPeriod, state.expenses);
+      renderHistoryChart(historyPeriod === 'today' || historyPeriod === 'custom' || historyPeriod === 'prevMonth' ? 'day' : historyPeriod, items);
       const grouped = new Map();
       items.forEach(item => { if (!grouped.has(item.date)) grouped.set(item.date, []); grouped.get(item.date).push(item); });
       byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(dayItems.reduce((sum, item) => sum + Number(item.amount), 0))}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
       document.querySelectorAll('[data-history-period]').forEach(button => { const active = button.dataset.historyPeriod === historyPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
+      byId('historyCustomDate').hidden = historyPeriod !== 'custom';
     }
     function inventoryStatus(item) {
       const months = Number(item.monthlyUsage) > 0 ? Number(item.qty) / Number(item.monthlyUsage) : Infinity;
@@ -3435,8 +3444,19 @@
       const del = e.target.closest('[data-delete-expense]');
       if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; const deleted = state.expenses.find(x => x.id === deletedId); if (deleted?.sourceExpenseId && (Number(deleted.amount) < 0 || deleted.kind === 'refund')) { if (deleted.qty == null) openRevokeRefund(deleted); else revokeRefund(deleted, Number(deleted.qty)); return; } state.expenses = state.expenses.filter(x => x.id !== deletedId); state.expenseTombstones = { ...(state.expenseTombstones || {}), [deletedId]: Date.now() }; saveState(); renderAll(); showToast('消费记录已删除，关联库存已保留'); }
     }));
-    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; renderHistory(); }));
-    byId('historyDate').addEventListener('change', renderHistory);
+    function shiftHistoryPeriod(direction) {
+      const date = localDate(historyAnchorISO);
+      if (historyPeriod === 'today') date.setDate(date.getDate() + direction);
+      else if (historyPeriod === 'week') date.setDate(date.getDate() + direction * 7);
+      else if (historyPeriod === 'month' || historyPeriod === 'prevMonth') date.setMonth(date.getMonth() + direction);
+      else if (historyPeriod === 'custom') { const start = localDate(byId('historyStartDate').value || historyAnchorISO); const end = localDate(byId('historyEndDate').value || historyAnchorISO); const days = Math.max(1, Math.round((end - start) / 86400000) + 1); start.setDate(start.getDate() + direction * days); end.setDate(end.getDate() + direction * days); byId('historyStartDate').value = dateISO(start); byId('historyEndDate').value = dateISO(end); }
+      historyAnchorISO = dateISO(date); renderHistory();
+    }
+    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; historyAnchorISO = todayISO(); localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { byId('historyStartDate').value ||= dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); byId('historyEndDate').value ||= todayISO(); } renderHistory(); }));
+    byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); renderHistory(); });
+    byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; localStorage.setItem('slow-buy-history-period', historyPeriod); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); renderHistory(); });
+    byId('historyPrevBtn').addEventListener('click', () => { shiftHistoryPeriod(-1); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); } });
+    byId('historyNextBtn').addEventListener('click', () => { shiftHistoryPeriod(1); localStorage.setItem('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { localStorage.setItem('slow-buy-history-start', byId('historyStartDate').value); localStorage.setItem('slow-buy-history-end', byId('historyEndDate').value); } });
     byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); state.monthlyBudget = Number(byId('monthlyBudget').value); saveState(); showToast('预算已保存'); });
     byId('hostForm').addEventListener('submit', e => {
       e.preventDefault(); const id = byId('hostId').value || uid(); const existing = state.hosts.find(h => h.id === id);
@@ -3542,7 +3562,8 @@
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     updateDecisionStep(1);
     byId('expenseDate').value = todayISO();
-    byId('historyDate').value = todayISO();
+    byId('historyStartDate').value = localStorage.getItem('slow-buy-history-start') || dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    byId('historyEndDate').value = localStorage.getItem('slow-buy-history-end') || todayISO();
     renderAll();
     hydrateOfflineState(currentStoreKey);
     if (window.lucide) iconRefresh();
