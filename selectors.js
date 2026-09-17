@@ -17,9 +17,9 @@
       const prefix = period === 'today' ? '今天' : period === 'week' ? '本周' : period === 'month' ? '本月' : period === 'prevMonth' ? '上月' : '自定义';
       return `${prefix}统计：${format(range.start)}${period === 'today' || (range.start.getTime() === range.end.getTime()) ? '' : `至${format(range.end)}`}`;
     }
-    function historyChartBuckets(period, expenses) {
-      const valid = expenses.filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.date));
-      if (!valid.length) return [];
+    function historyChartBuckets(period, expenses, range) {
+      const valid = expenses.filter(item => !item.deletedAt && /^\d{4}-\d{2}-\d{2}$/.test(item.date) && Number.isFinite(Number(item.amount)) && (!range || (localDate(item.date) >= range.start && localDate(item.date) <= range.end)));
+      if (!valid.length && !range) return [];
       const bucketKey = date => {
         if (period === 'day') return dateISO(date);
         if (period === 'week') { const monday = new Date(date); monday.setDate(date.getDate() - ((date.getDay() + 6) % 7)); return dateISO(monday); }
@@ -34,7 +34,7 @@
         if (period === 'quarter') return `${date.getFullYear()}年Q${Math.floor(date.getMonth() / 3) + 1}`;
         return `${date.getFullYear()}年`;
       };
-      const totals = new Map(); const dates = valid.map(item => localDate(item.date)).sort((a, b) => a - b); const first = new Date(dates[0]); const last = new Date(dates[dates.length - 1]);
+      const totals = new Map(); const dates = valid.map(item => localDate(item.date)).sort((a, b) => a - b); const first = new Date(range ? range.start : dates[0]); const last = new Date(range ? range.end : dates[dates.length - 1]);
       const normalize = date => {
         if (period === 'week') { date.setDate(date.getDate() - ((date.getDay() + 6) % 7)); date.setHours(0, 0, 0, 0); }
         if (period === 'month') date.setDate(1);

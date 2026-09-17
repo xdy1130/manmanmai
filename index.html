@@ -65,7 +65,7 @@
     .segment-btn.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(32,34,31,.12); }
     .history-summary { margin-top: 12px; }
     .history-chart { margin-top: 12px; padding: 12px 10px 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
-    .history-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+    .history-chart-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
     .history-trend-switch { display: flex; flex-shrink: 0; gap: 4px; background: var(--bg); border-radius: 6px; padding: 3px; }
     .history-trend-switch button { padding: 0 12px; }
     .history-chart-title { font-size: 14px; font-weight: 600; }
@@ -934,14 +934,14 @@
       </div>
       <div class="section-head"><h2>消费趋势</h2><span class="pill">可拖动查看</span></div>
       <div class="history-controls">
-        <div class="segmented history-periods" role="group" aria-label="统计周期">
+        <div class="segmented history-periods" role="group" aria-label="日期范围快捷选择">
           <button class="segment-btn" type="button" data-history-period="today" aria-pressed="false">今天</button>
           <button class="segment-btn" type="button" data-history-period="week" aria-pressed="false">本周</button>
-          <button class="segment-btn active" type="button" data-history-period="month" aria-pressed="true">本月</button>
+          <button class="segment-btn" type="button" data-history-period="month" aria-pressed="false">本月</button>
           <button class="segment-btn" type="button" data-history-period="prevMonth" aria-pressed="false">上月</button>
-          <button class="segment-btn" type="button" data-history-period="custom" aria-pressed="false">自定义</button>
+          <button class="segment-btn active" type="button" data-history-period="custom" aria-pressed="true">自定义</button>
         </div>
-        <div class="history-custom-date" id="historyCustomDate" hidden><label>开始日期<input id="historyStartDate" type="date"></label><label>结束日期<input id="historyEndDate" type="date"></label></div>
+        <div class="history-custom-date" id="historyCustomDate"><label>开始日期<input id="historyStartDate" type="date"></label><label>结束日期<input id="historyEndDate" type="date"></label></div>
         <div class="history-nav"><button class="btn btn-icon" id="historyPrevBtn" type="button" title="上一个周期" aria-label="上一个周期"><i data-lucide="chevron-left"></i></button><button class="btn btn-icon" id="historyNextBtn" type="button" title="下一个周期" aria-label="下一个周期"><i data-lucide="chevron-right"></i></button></div>
       </div>
       <div class="summary-grid history-summary">
@@ -951,8 +951,8 @@
       </div>
       <p class="muted small" id="historyRangeLabel" style="margin:10px 0 8px"></p>
       <div class="analysis-card">
-        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">每月支出合计趋势</span><div class="history-trend-switch" role="group" aria-label="趋势汇总维度"><button class="segment-btn" type="button" data-trend-period="week" aria-pressed="false">按周</button><button class="segment-btn active" type="button" data-trend-period="month" aria-pressed="true">按月</button></div></div>
-        <div class="muted small">全部历史 · 净支出（消费减退款）· 独立于上方账单日期筛选</div>
+        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">每月支出合计趋势</span><div class="history-trend-switch" role="group" aria-label="趋势汇总维度"><button class="segment-btn" type="button" data-trend-period="day" aria-pressed="false">按日</button><button class="segment-btn" type="button" data-trend-period="week" aria-pressed="false">按周</button><button class="segment-btn active" type="button" data-trend-period="month" aria-pressed="true">按月</button></div></div>
+        <div class="muted small">所选日期范围 · 净支出（消费减退款）· 无消费的时段显示为零</div>
         <div class="history-chart-plot" id="historyChart" aria-label="历史消费趋势图"></div>
       </div>
       <div class="section-head">
@@ -2232,8 +2232,8 @@
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
       byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
     }
-    let historyPeriod = getPreference('slow-buy-history-period') || 'month';
-    let historyTrendPeriod = getPreference('slow-buy-history-trend-period') === 'week' ? 'week' : 'month';
+    let historyPeriod = 'custom';
+    let historyTrendPeriod = ['day', 'week', 'month'].includes(getPreference('slow-buy-history-trend-period')) ? getPreference('slow-buy-history-trend-period') : 'month';
     let historyAnchorISO = getPreference('slow-buy-history-anchor') || todayISO();
     function bindHistoryChartTooltip(chart) {
       const tooltip = chart.querySelector('.history-chart-tooltip'); if (!tooltip) return;
@@ -2250,11 +2250,11 @@
       chart.onfocusout = () => { tooltip.hidden = true; };
       chart.onclick = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot); };
     }
-    function renderHistoryChart(period, expenses) {
-      const chart = byId('historyChart'); const buckets = historyChartBuckets(period, expenses);
+    function renderHistoryChart(period, expenses, range) {
+      const chart = byId('historyChart'); const buckets = historyChartBuckets(period, expenses, range);
       const titles = { day: '每日趋势', week: '每周支出合计趋势', month: '每月支出合计趋势', quarter: '每季度趋势', year: '每年趋势' };
       byId('historyChartTitle').textContent = titles[period] || '消费趋势';
-      if (!buckets.length || !expenses.length) { chart.innerHTML = '<div class="history-chart-empty">还没有消费记录，记一笔后查看趋势</div>'; return; }
+      if (!buckets.length) { chart.innerHTML = '<div class="history-chart-empty">还没有消费记录，记一笔后查看趋势</div>'; return; }
       const width = Math.max(640, buckets.length * 46 + 60); const height = 220; const pad = { top: 24, right: 24, bottom: 34, left: 48 }; const plotWidth = width - pad.left - pad.right; const plotHeight = height - pad.top - pad.bottom;
       const values = buckets.map(bucket => bucket.value); const min = Math.min(0, ...values); const max = Math.max(0, ...values); const span = max - min || 1; const y = value => pad.top + (max - value) / span * plotHeight; const x = index => buckets.length === 1 ? pad.left + plotWidth / 2 : pad.left + index / (buckets.length - 1) * plotWidth;
       const points = buckets.map((bucket, index) => `${x(index).toFixed(1)},${y(bucket.value).toFixed(1)}`).join(' '); const zeroY = y(0); const labelStep = buckets.length > 14 ? Math.ceil(buckets.length / 8) : 1;
@@ -2273,16 +2273,18 @@
       byId('historyPurchaseTotal').textContent = money(purchaseTotal);
       byId('historyRefundTotal').textContent = money(refundTotal);
       byId('historyNetTotal').textContent = money(purchaseTotal - refundTotal);
-      byId('expenseMonthSpent').textContent = money(purchaseTotal - refundTotal);
-      byId('billCompareText').textContent = historyLabel(historyPeriod, range);
+      byId('expenseMonthSpent').textContent = money(monthSpent());
+      byId('billCompareText').textContent = '含消费与退款';
       byId('historyRangeLabel').textContent = `${historyLabel(historyPeriod, range)} · ${items.length} 笔记录`;
-      renderHistoryChart(historyTrendPeriod, state.expenses);
+      renderHistoryChart(historyTrendPeriod, items, range);
       document.querySelectorAll('[data-trend-period]').forEach(button => { const active = button.dataset.trendPeriod === historyTrendPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
       const grouped = new Map();
       items.forEach(item => { if (!grouped.has(item.date)) grouped.set(item.date, []); grouped.get(item.date).push(item); });
       byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(expenseTotals(dayItems).net)}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
       document.querySelectorAll('[data-history-period]').forEach(button => { const active = button.dataset.historyPeriod === historyPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
-      byId('historyCustomDate').hidden = historyPeriod !== 'custom';
+      byId('historyCustomDate').hidden = false;
+      byId('historyStartDate').value = dateISO(range.start);
+      byId('historyEndDate').value = dateISO(range.end);
     }
     function inventoryStatus(item) {
       const months = Number(item.monthlyUsage) > 0 ? Number(item.qty) / Number(item.monthlyUsage) : Infinity;
@@ -3127,14 +3129,14 @@
       const date = localDate(historyAnchorISO);
       if (historyPeriod === 'today') date.setDate(date.getDate() + direction);
       else if (historyPeriod === 'week') date.setDate(date.getDate() + direction * 7);
-      else if (historyPeriod === 'month' || historyPeriod === 'prevMonth') date.setMonth(date.getMonth() + direction);
+      else if (historyPeriod === 'month' || historyPeriod === 'prevMonth') { date.setDate(1); date.setMonth(date.getMonth() + direction); }
       else if (historyPeriod === 'custom') { const start = localDate(byId('historyStartDate').value || historyAnchorISO); const end = localDate(byId('historyEndDate').value || historyAnchorISO); const days = Math.max(1, Math.round((end - start) / 86400000) + 1); start.setDate(start.getDate() + direction * days); end.setDate(end.getDate() + direction * days); byId('historyStartDate').value = dateISO(start); byId('historyEndDate').value = dateISO(end); }
       historyAnchorISO = dateISO(date); renderHistory();
     }
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; historyAnchorISO = todayISO(); setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { byId('historyStartDate').value ||= dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); byId('historyEndDate').value ||= todayISO(); } renderHistory(); }));
     document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => { historyTrendPeriod = button.dataset.trendPeriod; setPreference('slow-buy-history-trend-period', historyTrendPeriod); renderHistory(); }));
-    byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-start', byId('historyStartDate').value); renderHistory(); });
-    byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-end', byId('historyEndDate').value); renderHistory(); });
+    byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); renderHistory(); setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); });
+    byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); renderHistory(); setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); });
     byId('historyPrevBtn').addEventListener('click', () => { shiftHistoryPeriod(-1); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); } });
     byId('historyNextBtn').addEventListener('click', () => { shiftHistoryPeriod(1); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); } });
     byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); if (!transact(draft => { draft.monthlyBudget = Number(byId('monthlyBudget').value); }).ok) { showToast('保存失败'); return; } showToast('预算已保存'); });
@@ -3242,7 +3244,7 @@
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     updateDecisionStep(1);
     byId('expenseDate').value = todayISO();
-    byId('historyStartDate').value = getPreference('slow-buy-history-start') || dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    byId('historyStartDate').value = getPreference('slow-buy-history-start') || dateISO(new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1));
     byId('historyEndDate').value = getPreference('slow-buy-history-end') || todayISO();
     renderAll();
     hydrateOfflineState(currentStoreKey);
