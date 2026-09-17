@@ -797,6 +797,31 @@
       .wardrobe-entry-banner { align-items:flex-start; }
       .wardrobe-entry-banner .btn { align-self:center; }
     }
+
+    .history-controls { grid-template-columns: minmax(0, 1fr); }
+    .history-periods { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .history-periods .segment-btn { padding-inline: 2px; font-size: 13px; white-space: nowrap; }
+    .history-custom-date { flex-wrap: wrap; align-items: end; }
+    .history-custom-date label { flex: 1 1 125px; }
+    .history-custom-date input { width: 100%; min-width: 0; }
+    .history-custom-date .btn { flex: 0 0 auto; }
+    .trend-comparison { margin-top: 16px; }
+    .trend-current-amount { display: block; font-size: 32px; margin-top: 6px; }
+    .trend-change { margin: 8px 0; font-weight: 600; }
+    .trend-complete { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; font-size: 13px; }
+    .trend-comparison p, .trend-detail p { overflow-wrap: anywhere; line-height: 1.6; }
+    .history-summary .summary { padding: 10px; box-shadow: none; background: var(--surface-2); }
+    .history-summary .summary strong { font-size: 16px; }
+    .history-summary .summary span { font-size: 12px; }
+    .trend-detail { margin-top: 16px; }
+    .trend-detail h3 { font-size: 15px; margin: 0; }
+    .trend-ledger { margin-top: 18px; }
+    .trend-ledger summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+    .history-chart-dot { cursor: pointer; }
+    .history-chart-dot:hover, .history-chart-dot:focus { stroke: none; }
+    .history-chart-dot:focus .history-dot-visible, .history-chart-dot[aria-pressed="true"] .history-dot-visible { stroke: var(--text); stroke-width: 3; }
+    .history-chart-tooltip { transform: none; max-width: min(280px, calc(100% - 16px)); white-space: normal; pointer-events: none; }
+    #historyPartialNote { line-height: 1.6; margin: 8px 0 0; overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -927,39 +952,59 @@
 
     <section class="page" id="page-expenses">
       <div class="page-hero"><span class="eyebrow">MONEY REVIEW</span><h2>钱都花到哪里了</h2><p class="muted">先看趋势和结论，再回到每一笔流水。</p></div>
-      <div class="bill-hero">
-        <div class="bill-total"><span>本月净支出</span><strong id="expenseMonthSpent">¥0</strong><small id="billCompareText">含消费与退款</small></div>
-        <div class="bill-mini"><span>昨天</span><strong id="todaySpent">¥0</strong></div>
-        <div class="bill-mini"><span>本周</span><strong id="weekSpent">¥0</strong></div>
-      </div>
-      <div class="section-head"><h2>消费趋势</h2><span class="pill">可拖动查看</span></div>
+      <section class="trend-comparison card" aria-label="月度消费比较">
+        <div class="small muted">本月截至今天 · 消费金额</div>
+        <strong class="trend-current-amount" id="trendCurrentAmount">¥0</strong>
+        <p id="trendCurrentChange" class="trend-change"></p>
+        <p id="trendCurrentDates" class="small muted"></p>
+        <div class="trend-complete"><strong id="trendCompleteChange"></strong><p id="trendCompleteDates" class="small muted"></p></div>
+        <div class="small muted">购买金额不扣退款；以上比较固定按当前月份计算，独立于下方所选区间。</div>
+      </section>
+      <div class="section-head"><h2>消费趋势</h2><span class="pill">点选查看账单</span></div>
       <div class="history-controls">
         <div class="segmented history-periods" role="group" aria-label="日期范围快捷选择">
-          <button class="segment-btn" type="button" data-history-period="today" aria-pressed="false">今天</button>
-          <button class="segment-btn" type="button" data-history-period="week" aria-pressed="false">本周</button>
-          <button class="segment-btn" type="button" data-history-period="month" aria-pressed="false">本月</button>
-          <button class="segment-btn" type="button" data-history-period="prevMonth" aria-pressed="false">上月</button>
-          <button class="segment-btn active" type="button" data-history-period="custom" aria-pressed="true">自定义</button>
+          <button class="segment-btn" type="button" data-history-period="sixMonths" aria-pressed="false">近 6 个月</button>
+          <button class="segment-btn active" type="button" data-history-period="twelveMonths" aria-pressed="true">近 12 个月</button>
+          <button class="segment-btn" type="button" data-history-period="all" aria-pressed="false">全部</button>
+          <button class="segment-btn" type="button" data-history-period="custom" aria-pressed="false">自定义</button>
         </div>
-        <div class="history-custom-date" id="historyCustomDate"><label>开始日期<input id="historyStartDate" type="date"></label><label>结束日期<input id="historyEndDate" type="date"></label></div>
-        <div class="history-nav"><button class="btn btn-icon" id="historyPrevBtn" type="button" title="上一个周期" aria-label="上一个周期"><i data-lucide="chevron-left"></i></button><button class="btn btn-icon" id="historyNextBtn" type="button" title="下一个周期" aria-label="下一个周期"><i data-lucide="chevron-right"></i></button></div>
-      </div>
-      <div class="summary-grid history-summary">
-        <div class="summary"><span>消费</span><strong id="historyPurchaseTotal">¥0</strong></div>
-        <div class="summary"><span>退款</span><strong id="historyRefundTotal">¥0</strong></div>
-        <div class="summary"><span>净支出</span><strong id="historyNetTotal">¥0</strong></div>
+        <form class="history-custom-date" id="historyCustomDate" hidden>
+          <label>开始日期<input id="historyStartDate" type="date" required></label>
+          <label>结束日期<input id="historyEndDate" type="date" required></label>
+          <button class="btn" type="submit">应用范围</button>
+        </form>
+        <p class="small" id="historyDateError" role="alert" hidden></p>
       </div>
       <p class="muted small" id="historyRangeLabel" style="margin:10px 0 8px"></p>
       <div class="analysis-card">
-        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">每月支出合计趋势</span><div class="history-trend-switch" role="group" aria-label="趋势汇总维度"><button class="segment-btn" type="button" data-trend-period="day" aria-pressed="false">按日</button><button class="segment-btn" type="button" data-trend-period="week" aria-pressed="false">按周</button><button class="segment-btn active" type="button" data-trend-period="month" aria-pressed="true">按月</button></div></div>
-        <div class="muted small">所选日期范围 · 净支出（消费减退款）· 无消费的时段显示为零</div>
+        <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">每月消费金额</span><div class="history-trend-switch" role="group" aria-label="趋势汇总维度"><button class="segment-btn active" type="button" data-trend-period="month" aria-pressed="true">按月</button><button class="segment-btn" type="button" data-trend-period="week" aria-pressed="false">按周</button><button class="segment-btn" type="button" data-trend-period="day" aria-pressed="false">按日</button></div></div>
+        <div class="muted small">消费金额不扣退款 · 无消费补零 · 周一至周日</div>
         <div class="history-chart-plot" id="historyChart" aria-label="历史消费趋势图"></div>
+        <p id="historyPartialNote" class="muted small"></p>
       </div>
-      <div class="section-head">
-        <div><h2>账单流水</h2><p class="muted small">按日期查看每笔消费与退款</p></div>
-        <button class="btn" data-open="expenseModal"><i data-lucide="plus"></i>记一笔</button>
+      <div class="summary-grid history-summary" aria-label="所选区间辅助汇总">
+        <div class="summary"><span>区间消费</span><strong id="historyPurchaseTotal">¥0</strong></div>
+        <div class="summary"><span>区间退款</span><strong id="historyRefundTotal">¥0</strong></div>
+        <div class="summary"><span>区间净支出</span><strong id="historyNetTotal">¥0</strong></div>
       </div>
-      <div class="list" id="historyExpenseList"></div>
+      <p class="muted small">退款沿用原账单归属日期。</p>
+      <section class="card trend-detail" id="historyBucketDetail" hidden aria-label="所选周期账单">
+        <div class="history-chart-head"><h3 id="historyBucketTitle" tabindex="-1"></h3><button class="btn" type="button" id="historyBucketClose">收起</button></div>
+        <p id="historyBucketSummary" class="small muted"></p>
+        <div id="historyBucketList" class="list"></div>
+      </section>
+      <details class="trend-ledger" id="historyLedger">
+        <summary>查看所选区间账单流水</summary>
+        <div class="section-head"><p class="muted small">按日期查看每笔消费与退款</p><button class="btn" data-open="expenseModal"><i data-lucide="plus"></i>记一笔</button></div>
+        <div class="list" id="historyExpenseList"></div>
+      </details>
+      <details class="trend-ledger"><summary>查看近期净支出</summary>
+        <div class="summary-grid history-summary">
+          <div class="summary"><span>本月净支出</span><strong id="expenseMonthSpent">¥0</strong><small id="billCompareText">含消费与退款</small></div>
+          <div class="summary"><span>昨天净支出</span><strong id="todaySpent">¥0</strong></div>
+          <div class="summary"><span>本周净支出</span><strong id="weekSpent">¥0</strong></div>
+        </div>
+      </details>
       <div class="section-head"><button class="section-toggle" id="toggleAllExpensesBtn" type="button">展开全部历史记录</button></div>
       <div class="list collapsible-section" id="expenseList" hidden></div>
     </section>
@@ -1213,7 +1258,7 @@
   <script src="inventory.js"></script>
   <script src="refunds.js"></script>
   <script src="expenses.js"></script>
-  <script src="selectors.js"></script>
+  <script src="selectors.js?v=69"></script>
   <script>
     // Keep this namespace stable across HTML releases; the service-worker cache version is independent.
     const STORE_KEY = 'slow-buy-v1';
@@ -2232,59 +2277,101 @@
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
       byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
     }
-    let historyPeriod = 'custom';
-    let historyTrendPeriod = ['day', 'week', 'month'].includes(getPreference('slow-buy-history-trend-period')) ? getPreference('slow-buy-history-trend-period') : 'month';
-    let historyAnchorISO = getPreference('slow-buy-history-anchor') || todayISO();
+    let historyPeriod = 'twelveMonths';
+    let historyTrendPeriod = 'month';
+    let historyCustomRange = null;
+    let historyBuckets = [];
+    let historySelectedBucket = null;
+    function historyComparisonText(comparison) {
+      if (comparison.status === '均无消费') return '均无消费（差额 ¥0）';
+      if (comparison.status === '新增消费') return `新增消费 ${money(comparison.delta)}`;
+      if (comparison.status === '持平') return '持平（差额 ¥0，0%）';
+      return `${comparison.status} ${money(Math.abs(comparison.delta))}（${Math.abs(comparison.percent).toFixed(1)}%）`;
+    }
+    function renderMonthlyComparisons() {
+      const {toDate, complete} = monthlyTrendComparisons(state.expenses);
+      byId('trendCurrentAmount').textContent = money(toDate.current);
+      byId('trendCurrentChange').textContent = `较上月同期：${historyComparisonText(toDate)}`;
+      byId('trendCurrentDates').textContent = `本月 ${trendDateLabel(toDate.range)}；上月同期 ${trendDateLabel(toDate.baseRange)}，消费 ${money(toDate.previous)}`;
+      byId('trendCompleteChange').textContent = `最近完整月消费 ${money(complete.current)} · 较前一个完整月${historyComparisonText(complete)}`;
+      byId('trendCompleteDates').textContent = `${trendDateLabel(complete.range)} 对比 ${trendDateLabel(complete.baseRange)}（${money(complete.previous)}）`;
+    }
+    function renderHistoryBucket(index, moveFocus = false) {
+      const bucket = historyBuckets[index];
+      if (!bucket) { byId('historyBucketDetail').hidden = true; return; }
+      historySelectedBucket = index;
+      byId('historyBucketDetail').hidden = false;
+      byId('historyBucketTitle').textContent = bucket.displayLabel;
+      byId('historyBucketSummary').textContent = `${trendDateLabel(bucket)} · 消费 ${money(bucket.value)} · 退款 ${money(bucket.refund)} · 净支出 ${money(bucket.net)} · 购买按金额从高到低，退款在后`;
+      const items = trendBucketExpenses(state.expenses, bucket);
+      byId('historyBucketList').innerHTML = items.length ? items.map(item => expenseHTML(item)).join('') : '<div class="empty">这个周期没有消费或退款记录</div>';
+      document.querySelectorAll('[data-chart-index]').forEach(dot => dot.setAttribute('aria-pressed', String(Number(dot.dataset.chartIndex) === index)));
+      iconRefresh();
+      if (moveFocus) { byId('historyBucketDetail').scrollIntoView({behavior: 'smooth', block: 'nearest'}); byId('historyBucketTitle').focus({preventScroll: true}); }
+    }
     function bindHistoryChartTooltip(chart) {
       const tooltip = chart.querySelector('.history-chart-tooltip'); if (!tooltip) return;
-      const show = (dot, clientX, clientY) => {
-        const rect = chart.getBoundingClientRect(); const dotRect = dot.getBoundingClientRect();
-        tooltip.innerHTML = `${escapeHTML(dot.dataset.chartLabel)}<strong>${escapeHTML(money(dot.dataset.chartValue))}</strong>`;
-        tooltip.style.left = `${clientX ?? dotRect.left + dotRect.width / 2 - rect.left}px`;
-        tooltip.style.top = `${clientY ?? dotRect.top - rect.top}px`;
+      const show = dot => {
+        const rect = chart.getBoundingClientRect(), dotRect = dot.getBoundingClientRect();
+        const bucket = historyBuckets[Number(dot.dataset.chartIndex)];
+        tooltip.textContent = `${bucket.displayLabel} · ${trendDateLabel(bucket)} · 消费 ${money(bucket.value)}`;
         tooltip.hidden = false;
+        tooltip.style.left = `${Math.max(8, Math.min(rect.width - tooltip.offsetWidth - 8, dotRect.left + dotRect.width / 2 - rect.left))}px`;
+        tooltip.style.top = `${Math.max(8, dotRect.top - rect.top - tooltip.offsetHeight - 10)}px`;
       };
-      chart.onpointermove = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot, event.clientX, event.clientY); else tooltip.hidden = true; };
+      chart.onpointermove = event => { const dot = event.target.closest('[data-chart-index]'); if (dot) show(dot); else tooltip.hidden = true; };
       chart.onpointerleave = () => { tooltip.hidden = true; };
-      chart.onfocusin = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot); };
+      chart.onfocusin = event => { const dot = event.target.closest('[data-chart-index]'); if (dot) show(dot); };
       chart.onfocusout = () => { tooltip.hidden = true; };
-      chart.onclick = event => { const dot = event.target.closest('.history-chart-dot'); if (dot) show(dot); };
+      chart.onclick = event => { const dot = event.target.closest('[data-chart-index]'); if (dot) { show(dot); renderHistoryBucket(Number(dot.dataset.chartIndex), true); } };
+      chart.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { const dot = event.target.closest('[data-chart-index]'); if (dot) { event.preventDefault(); renderHistoryBucket(Number(dot.dataset.chartIndex), true); } } };
     }
     function renderHistoryChart(period, expenses, range) {
       const chart = byId('historyChart'); const buckets = historyChartBuckets(period, expenses, range);
-      const titles = { day: '每日趋势', week: '每周支出合计趋势', month: '每月支出合计趋势', quarter: '每季度趋势', year: '每年趋势' };
-      byId('historyChartTitle').textContent = titles[period] || '消费趋势';
-      if (!buckets.length) { chart.innerHTML = '<div class="history-chart-empty">还没有消费记录，记一笔后查看趋势</div>'; return; }
-      const width = Math.max(640, buckets.length * 46 + 60); const height = 220; const pad = { top: 24, right: 24, bottom: 34, left: 48 }; const plotWidth = width - pad.left - pad.right; const plotHeight = height - pad.top - pad.bottom;
-      const values = buckets.map(bucket => bucket.value); const min = Math.min(0, ...values); const max = Math.max(0, ...values); const span = max - min || 1; const y = value => pad.top + (max - value) / span * plotHeight; const x = index => buckets.length === 1 ? pad.left + plotWidth / 2 : pad.left + index / (buckets.length - 1) * plotWidth;
-      const points = buckets.map((bucket, index) => `${x(index).toFixed(1)},${y(bucket.value).toFixed(1)}`).join(' '); const zeroY = y(0); const labelStep = buckets.length > 14 ? Math.ceil(buckets.length / 8) : 1;
-      const grid = [max, 0, min].filter((value, index, all) => all.indexOf(value) === index).map(value => `<line x1="${pad.left}" y1="${y(value).toFixed(1)}" x2="${width - pad.right}" y2="${y(value).toFixed(1)}" stroke="#dcded8" stroke-width="1" stroke-dasharray="3 4"/><text x="${pad.left - 7}" y="${(y(value) + 4).toFixed(1)}" text-anchor="end" fill="#70756e" font-size="11">${escapeHTML(money(value))}</text>`).join('');
-      const labels = buckets.map((bucket, index) => index % labelStep === 0 || index === buckets.length - 1 ? `<text x="${x(index).toFixed(1)}" y="${height - 10}" text-anchor="middle" fill="#70756e" font-size="11">${escapeHTML(bucket.label)}</text>` : '').join('');
-      const dots = buckets.map((bucket, index) => `<circle class="history-chart-dot" cx="${x(index).toFixed(1)}" cy="${y(bucket.value).toFixed(1)}" r="3.5" fill="#24734a" tabindex="0" role="img" aria-label="${escapeHTML(bucket.label)} ${escapeHTML(money(bucket.value))}" data-chart-label="${escapeHTML(bucket.label)}" data-chart-value="${bucket.value}"><title>${escapeHTML(bucket.label)}：${escapeHTML(money(bucket.value))}</title></circle>`).join('');
-      const defaultIndexes = buckets.map((bucket, index) => Number(bucket.value) !== 0 ? index : -1).filter(index => index >= 0);
-      const defaultLabels = defaultIndexes.map(index => { const bucket = buckets[index]; const first = index === 0; const last = index === buckets.length - 1; const anchor = first ? 'start' : last ? 'end' : 'middle'; const offset = first ? 7 : last ? -7 : 0; return `<text class="history-chart-value-label" x="${(x(index) + offset).toFixed(1)}" y="${Math.max(15, y(bucket.value) - 10).toFixed(1)}" text-anchor="${anchor}">${escapeHTML(money(bucket.value))}</text>`; }).join('');
-      chart.innerHTML = `<div class="history-chart-scroll"><svg class="history-chart-svg" style="width:${width}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="历史消费净支出折线图"><line x1="${pad.left}" y1="${zeroY.toFixed(1)}" x2="${width - pad.right}" y2="${zeroY.toFixed(1)}" stroke="#70756e" stroke-width="1"/><g>${grid}</g><polyline points="${points}" fill="none" stroke="#24734a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${defaultLabels}${dots}<g>${labels}</g></svg></div><div class="history-chart-tooltip" hidden></div>`;
+      historyBuckets = buckets;
+      byId('historyChartTitle').textContent = {day: '每日消费金额', week: '每周消费金额', month: '每月消费金额'}[period];
+      byId('historyPartialNote').textContent = buckets.filter(bucket => bucket.partial || bucket.ongoing).map(bucket => `${bucket.displayLabel}：${trendDateLabel(bucket)}`).join('；');
+      if (!buckets.length) { chart.innerHTML = '<div class="history-chart-empty">这个区间暂无可展示的周期</div>'; return; }
+      const width = Math.max(640, buckets.length * (period === 'month' ? 76 : 48) + 100), height = 250;
+      const pad = {top: 34, right: 55, bottom: 56, left: 70}, plotWidth = width - pad.left - pad.right, plotHeight = height - pad.top - pad.bottom;
+      const max = Math.max(1, buckets.reduce((max, bucket) => Math.max(max, bucket.value), 0));
+      const y = value => pad.top + (max - value) / max * plotHeight;
+      const x = index => buckets.length === 1 ? pad.left + plotWidth / 2 : pad.left + index / (buckets.length - 1) * plotWidth;
+      const points = buckets.map((bucket, index) => `${x(index)},${y(bucket.value)}`).join(' ');
+      const labelStep = buckets.length > 16 ? Math.ceil(buckets.length / 12) : 1;
+      const grid = [max, max / 2, 0].map(value => `<line x1="${pad.left}" y1="${y(value)}" x2="${width - pad.right}" y2="${y(value)}" stroke="#dcded8" stroke-dasharray="3 4"/><text x="${pad.left - 8}" y="${y(value) + 4}" text-anchor="end" fill="#70756e" font-size="11">${escapeHTML(money(value))}</text>`).join('');
+      const labels = buckets.map((bucket, index) => {
+        if (index % labelStep && index !== buckets.length - 1 && !bucket.ongoing && !bucket.partial) return '';
+        const date = bucket.date;
+        const label = period === 'month' ? `${date.getFullYear()}/${date.getMonth() + 1}` : period === 'week' ? bucket.label : `${date.getMonth() + 1}/${date.getDate()}`;
+        return `<text x="${x(index)}" y="${height - 30}" text-anchor="middle" fill="#70756e" font-size="11">${escapeHTML(label)}</text>${bucket.status ? `<text x="${x(index)}" y="${height - 12}" text-anchor="middle" fill="#24734a" font-size="10">${bucket.ongoing ? '进行中' : '不完整'}</text>` : ''}`;
+      }).join('');
+      const dots = buckets.map((bucket, index) => `<g class="history-chart-dot" data-chart-index="${index}" tabindex="0" role="button" aria-pressed="false" aria-label="${escapeHTML(bucket.displayLabel)}，${trendDateLabel(bucket)}，消费 ${escapeHTML(money(bucket.value))}，查看账单"><circle cx="${x(index)}" cy="${y(bucket.value)}" r="15" fill="transparent"/><circle class="history-dot-visible" cx="${x(index)}" cy="${y(bucket.value)}" r="${bucket.ongoing ? 5 : 4}" fill="#24734a" pointer-events="none"/><title>${escapeHTML(bucket.displayLabel)}：${trendDateLabel(bucket)}，消费 ${escapeHTML(money(bucket.value))}</title></g>`).join('');
+      const values = buckets.map((bucket, index) => (bucket.value && (index % labelStep === 0 || index === buckets.length - 1)) ? `<text class="history-chart-value-label" x="${x(index)}" y="${Math.max(15, y(bucket.value) - 13)}" text-anchor="middle">${escapeHTML(money(bucket.value))}</text>` : '').join('');
+      chart.innerHTML = `<div class="history-chart-scroll"><svg class="history-chart-svg" style="width:${width}px;height:${height}px" viewBox="0 0 ${width} ${height}" role="group" aria-label="消费金额折线图">${grid}<polyline points="${points}" fill="none" stroke="#24734a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${values}${dots}${labels}</svg></div><div class="history-chart-tooltip" hidden></div>`;
       bindHistoryChartTooltip(chart);
+      const scroll = chart.querySelector('.history-chart-scroll');
+      scroll.scrollLeft = scroll.scrollWidth;
     }
     function renderHistory() {
-      const range = historyRange(historyPeriod, historyAnchorISO);
-      const items = filterExpenses(state.expenses, range);
-      const {purchase: purchaseTotal, refund: refundTotal} = expenseTotals(items);
-      byId('historyPurchaseTotal').textContent = money(purchaseTotal);
-      byId('historyRefundTotal').textContent = money(refundTotal);
-      byId('historyNetTotal').textContent = money(purchaseTotal - refundTotal);
+      renderMonthlyComparisons();
+      const range = trendRange(historyPeriod, todayISO(), state.expenses, historyCustomRange || {});
+      const items = filterExpenses(state.expenses.filter(validTrendExpense), range);
+      const totals = trendTotals(items);
+      byId('historyPurchaseTotal').textContent = money(totals.purchase);
+      byId('historyRefundTotal').textContent = money(totals.refund);
+      byId('historyNetTotal').textContent = money(totals.net);
       byId('expenseMonthSpent').textContent = money(monthSpent());
       byId('billCompareText').textContent = '含消费与退款';
-      byId('historyRangeLabel').textContent = `${historyLabel(historyPeriod, range)} · ${items.length} 笔记录`;
+      byId('historyRangeLabel').textContent = `所选区间：${trendDateLabel(range)} · ${items.length} 笔记录`;
       renderHistoryChart(historyTrendPeriod, items, range);
       document.querySelectorAll('[data-trend-period]').forEach(button => { const active = button.dataset.trendPeriod === historyTrendPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
       const grouped = new Map();
       items.forEach(item => { if (!grouped.has(item.date)) grouped.set(item.date, []); grouped.get(item.date).push(item); });
-      byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>${money(expenseTotals(dayItems).net)}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
+      byId('historyExpenseList').innerHTML = items.length ? [...grouped.entries()].map(([date, dayItems]) => `<section class="ledger-day"><div class="ledger-day-head"><strong>${date === todayISO() ? '今天' : date}</strong><span>消费 ${money(trendTotals(dayItems).purchase)}</span></div><div class="list">${dayItems.map(item => expenseHTML(item)).join('')}</div></section>`).join('') : '<div class="empty">这个区间还没有消费或退款记录</div>';
       document.querySelectorAll('[data-history-period]').forEach(button => { const active = button.dataset.historyPeriod === historyPeriod; button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active)); });
-      byId('historyCustomDate').hidden = false;
-      byId('historyStartDate').value = dateISO(range.start);
-      byId('historyEndDate').value = dateISO(range.end);
+      if (historySelectedBucket !== null) renderHistoryBucket(historySelectedBucket);
+      else byId('historyBucketDetail').hidden = true;
     }
     function inventoryStatus(item) {
       const months = Number(item.monthlyUsage) > 0 ? Number(item.qty) / Number(item.monthlyUsage) : Infinity;
@@ -2669,6 +2756,7 @@
         b.setAttribute('aria-current', active ? 'page' : 'false');
       });
       document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === `page-${btn.dataset.page}`));
+      if (btn.dataset.page === 'expenses') renderHistory();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }));
     function goToPage(page) {
@@ -3115,7 +3203,7 @@
       const refund = state.expenses.find(x => x.id === byId('revokeRefundId').value); const text = byId('revokeRefundQty').value.trim(); const qty = Number(text); if (!/^\d+(?:\.\d{1,3})?$/.test(text) || !Number.isFinite(qty) || qty < 0 || qty > 100000) { if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; } showToast('恢复数量必须是大于等于 0 的有效数字'); return; }
       revokeRefund(refund, qty); if (submit) { submit.dataset.busy = 'false'; submit.disabled = false; }
     });
-    document.querySelectorAll('#expenseList, #historyExpenseList, #recentPurchases').forEach(list => list.addEventListener('click', e => {
+    document.querySelectorAll('#expenseList, #historyExpenseList, #historyBucketList, #recentPurchases').forEach(list => list.addEventListener('click', e => {
       const editRefundBtn = e.target.closest('[data-edit-refund]'); if (editRefundBtn) { openEditRefund(state.expenses.find(x => x.id === editRefundBtn.dataset.editRefund)); return; }
       const undoRefundBtn = e.target.closest('[data-undo-refund]'); if (undoRefundBtn && confirm('撤销退货并恢复库存？')) { const refund = state.expenses.find(x => x.id === undoRefundBtn.dataset.undoRefund); if (refund?.qty == null) openRevokeRefund(refund); else revokeRefund(refund, Number(refund.qty)); return; }
       const returnBill = e.target.closest('[data-return-expense]');
@@ -3125,20 +3213,36 @@
       const del = e.target.closest('[data-delete-expense]');
       if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; const deleted = state.expenses.find(x => x.id === deletedId); if (deleted?.sourceExpenseId && (Number(deleted.amount) < 0 || deleted.kind === 'refund')) { if (deleted.qty == null) openRevokeRefund(deleted); else revokeRefund(deleted, Number(deleted.qty)); return; } const result = transact(draft => ExpenseOps.remove(draft, deletedId)); showToast(result.ok ? '消费记录已删除，关联库存已保留' : result.error?.message || '删除失败'); }
     }));
-    function shiftHistoryPeriod(direction) {
-      const date = localDate(historyAnchorISO);
-      if (historyPeriod === 'today') date.setDate(date.getDate() + direction);
-      else if (historyPeriod === 'week') date.setDate(date.getDate() + direction * 7);
-      else if (historyPeriod === 'month' || historyPeriod === 'prevMonth') { date.setDate(1); date.setMonth(date.getMonth() + direction); }
-      else if (historyPeriod === 'custom') { const start = localDate(byId('historyStartDate').value || historyAnchorISO); const end = localDate(byId('historyEndDate').value || historyAnchorISO); const days = Math.max(1, Math.round((end - start) / 86400000) + 1); start.setDate(start.getDate() + direction * days); end.setDate(end.getDate() + direction * days); byId('historyStartDate').value = dateISO(start); byId('historyEndDate').value = dateISO(end); }
-      historyAnchorISO = dateISO(date); renderHistory();
-    }
-    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => { historyPeriod = button.dataset.historyPeriod; historyAnchorISO = todayISO(); setPreference('slow-buy-history-period', historyPeriod); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { byId('historyStartDate').value ||= dateISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); byId('historyEndDate').value ||= todayISO(); } renderHistory(); }));
-    document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => { historyTrendPeriod = button.dataset.trendPeriod; setPreference('slow-buy-history-trend-period', historyTrendPeriod); renderHistory(); }));
-    byId('historyStartDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); renderHistory(); setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); });
-    byId('historyEndDate').addEventListener('change', () => { historyPeriod = 'custom'; setPreference('slow-buy-history-period', historyPeriod); renderHistory(); setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); });
-    byId('historyPrevBtn').addEventListener('click', () => { shiftHistoryPeriod(-1); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); } });
-    byId('historyNextBtn').addEventListener('click', () => { shiftHistoryPeriod(1); setPreference('slow-buy-history-anchor', historyAnchorISO); if (historyPeriod === 'custom') { setPreference('slow-buy-history-start', byId('historyStartDate').value); setPreference('slow-buy-history-end', byId('historyEndDate').value); } });
+    document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => {
+      const period = button.dataset.historyPeriod;
+      byId('historyDateError').hidden = true;
+      byId('historyCustomDate').hidden = period !== 'custom';
+      if (period === 'custom') {
+        const range = trendRange(historyPeriod, todayISO(), state.expenses, historyCustomRange || {});
+        byId('historyStartDate').value = dateISO(range.start); byId('historyEndDate').value = dateISO(range.end);
+        byId('historyStartDate').focus();
+        return;
+      }
+      historyPeriod = period; historySelectedBucket = null; renderHistory();
+    }));
+    document.querySelectorAll('[data-trend-period]').forEach(button => button.addEventListener('click', () => {
+      historyTrendPeriod = button.dataset.trendPeriod; historySelectedBucket = null; renderHistory();
+    }));
+    byId('historyCustomDate').addEventListener('submit', event => {
+      event.preventDefault();
+      const start = byId('historyStartDate').value, end = byId('historyEndDate').value;
+      if (!start || !end || start > end || end > todayISO()) {
+        byId('historyDateError').textContent = '请选择有效范围：开始日期不晚于结束日期，结束日期不晚于今天。';
+        byId('historyDateError').hidden = false; return;
+      }
+      historyCustomRange = {start, end}; historyPeriod = 'custom'; historySelectedBucket = null;
+      byId('historyDateError').hidden = true; renderHistory();
+    });
+    byId('historyBucketClose').addEventListener('click', () => {
+      const selected = historySelectedBucket; historySelectedBucket = null; byId('historyBucketDetail').hidden = true;
+      const dot = byId('historyChart').querySelector(`[data-chart-index="${selected}"]`);
+      if (dot) { dot.setAttribute('aria-pressed', 'false'); dot.focus(); }
+    });
     byId('budgetForm').addEventListener('submit', e => { e.preventDefault(); if (!transact(draft => { draft.monthlyBudget = Number(byId('monthlyBudget').value); }).ok) { showToast('保存失败'); return; } showToast('预算已保存'); });
     byId('hostForm').addEventListener('submit', e => {
       e.preventDefault(); const id = byId('hostId').value || uid(); const existing = state.hosts.find(h => h.id === id);
@@ -3244,8 +3348,8 @@
     byId('decisionCategory').innerHTML = categoryOptions(); byId('expenseCategory').innerHTML = categoryOptions(); renderInventoryInputs();
     updateDecisionStep(1);
     byId('expenseDate').value = todayISO();
-    byId('historyStartDate').value = getPreference('slow-buy-history-start') || dateISO(new Date(new Date().getFullYear(), new Date().getMonth() - 11, 1));
-    byId('historyEndDate').value = getPreference('slow-buy-history-end') || todayISO();
+    byId('historyStartDate').max = todayISO();
+    byId('historyEndDate').max = todayISO();
     renderAll();
     hydrateOfflineState(currentStoreKey);
     if (window.lucide) iconRefresh();
