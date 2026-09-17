@@ -1,5 +1,5 @@
-const CACHE = 'slow-buy-v69';
-const ASSETS = ['./', './index.html', './manifest.json', './app-icon.svg', './storage.js', './offline.js', './migrations.js', './expenses.js', './refunds.js', './inventory.js', './selectors.js?v=69'];
+const CACHE = 'slow-buy-v70';
+const ASSETS = ['./', './index.html', './manifest.json', './app-icon.svg', './storage.js', './offline.js', './migrations.js', './expenses.js', './refunds.js', './inventory.js', './selectors.js?v=70'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));

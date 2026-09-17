@@ -822,6 +822,38 @@
     .history-chart-dot:focus .history-dot-visible, .history-chart-dot[aria-pressed="true"] .history-dot-visible { stroke: var(--text); stroke-width: 3; }
     .history-chart-tooltip { transform: none; max-width: min(280px, calc(100% - 16px)); white-space: normal; pointer-events: none; }
     #historyPartialNote { line-height: 1.6; margin: 8px 0 0; overflow-wrap: anywhere; }
+
+    #page-expenses { padding-top: 12px; }
+    .trend-conclusion { padding: 12px 0 26px; }
+    .trend-kicker { margin:0; font-weight:500; display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted); }
+    .trend-current-amount { font-size:clamp(36px, 7vw, 48px); line-height:1.2; letter-spacing:-1.5px; margin-top:12px; font-variant-numeric:tabular-nums; }
+    .trend-change { font-size:15px; margin:12px 0 0; line-height:1.6; }
+    .trend-change[data-direction="up"] { color:#ad6045; }
+    .trend-change[data-direction="down"] { color:#287650; }
+    .trend-info { display:inline-grid; place-items:center; width:25px; height:25px; padding:0; border:1px solid #b8c6bc; border-radius:50%; background:transparent; color:#587365; font:italic 14px Georgia,serif; cursor:pointer; }
+    .trend-info:focus-visible { outline:2px solid #287650; outline-offset:3px; }
+    .trend-popover { position:fixed; z-index:150; width:min(360px, calc(100vw - 24px)); max-height:calc(100dvh - 32px); overflow:auto; padding:18px; border-radius:14px; background:#fff; color:#35483d; box-shadow:0 10px 40px #203a3229; font-size:13px; line-height:1.7; }
+    .trend-popover p { margin:8px 0 0; }
+    .history-controls { gap:8px; }
+    .history-periods { background:#eaf0eb; padding:3px; }
+    .history-periods .segment-btn { font-size:12px; min-height:34px; }
+    .trend-main-chart { margin-top:22px; }
+    .trend-main-chart .history-chart-head { gap:12px; align-items:flex-start; }
+    .history-chart-title { color:var(--muted); font-size:12px; font-weight:500; line-height:1.6; }
+    .history-trend-switch { margin-left:auto; }
+    .history-trend-switch .segment-btn { font-size:12px; min-height:30px; }
+    .history-chart-plot { margin-top:10px; }
+    .history-chart-scroll { scrollbar-width:thin; }
+    .history-chart-tooltip { background:#284d3a; text-align:left; line-height:1.6; }
+    .trend-secondary { border-top:1px solid #e0e8e1; padding-top:16px; }
+    .trend-ledger { margin-top:16px; }
+    .trend-ledger summary { font-size:13px; }
+    .trend-totals { font-size:14px; }
+    .trend-totals div { display:flex; justify-content:space-between; margin:12px 0; }
+    .trend-totals dd { margin:0; font-variant-numeric:tabular-nums; }
+    #historyBucketDetail { box-shadow:none; border:0; border-left:3px solid #287650; background:#edf4ee; padding:16px; }
+    #historyBucketDetail .item-title { overflow-wrap:anywhere; }
+    @media(max-width:480px) { .trend-main-chart .history-chart-head { display:block; } .history-trend-switch { width:max-content; margin:10px 0 0 auto; } }
   </style>
 </head>
 <body>
@@ -951,20 +983,21 @@
     </section>
 
     <section class="page" id="page-expenses">
-      <div class="page-hero"><span class="eyebrow">MONEY REVIEW</span><h2>钱都花到哪里了</h2><p class="muted">先看趋势和结论，再回到每一笔流水。</p></div>
-      <section class="trend-comparison card" aria-label="月度消费比较">
-        <div class="small muted">本月截至今天 · 消费金额</div>
+      <section class="trend-conclusion" aria-label="月度消费比较">
+        <h2 class="trend-kicker">本月已记录消费 <button class="trend-info" id="trendInfoButton" type="button" aria-label="查看统计说明" aria-expanded="false" aria-controls="trendInfoPanel">i</button></h2>
         <strong class="trend-current-amount" id="trendCurrentAmount">¥0</strong>
-        <p id="trendCurrentChange" class="trend-change"></p>
-        <p id="trendCurrentDates" class="small muted"></p>
-        <div class="trend-complete"><strong id="trendCompleteChange"></strong><p id="trendCompleteDates" class="small muted"></p></div>
-        <div class="small muted">购买金额不扣退款；以上比较固定按当前月份计算，独立于下方所选区间。</div>
+        <p id="trendCurrentChange" class="trend-change" aria-live="polite"></p>
       </section>
-      <div class="section-head"><h2>消费趋势</h2><span class="pill">点选查看账单</span></div>
+      <div id="trendInfoPanel" class="trend-popover" role="tooltip" hidden>
+        <strong>统计说明</strong><p id="trendCurrentDates"></p>
+        <p>金额合计有效购买记录，不扣退款，排除已删除记录。本月结论固定按当前月份计算，独立于图表筛选。记录覆盖情况未经确认，零值表示未记录购买，不代表实际没有消费。</p>
+        <p id="historyRangeLabel"></p><p id="historyPartialNote"></p>
+        <p>图表按所选范围汇总，周一至周日，无记录周期补零。退款沿用原账单归属日期。仅在数据覆盖完整且周期完整可比时展示逐周期变化。</p>
+      </div>
       <div class="history-controls">
         <div class="segmented history-periods" role="group" aria-label="日期范围快捷选择">
-          <button class="segment-btn" type="button" data-history-period="sixMonths" aria-pressed="false">近 6 个月</button>
-          <button class="segment-btn active" type="button" data-history-period="twelveMonths" aria-pressed="true">近 12 个月</button>
+          <button class="segment-btn active" type="button" data-history-period="sixMonths" aria-pressed="true">近 6 个月</button>
+          <button class="segment-btn" type="button" data-history-period="twelveMonths" aria-pressed="false">近 12 个月</button>
           <button class="segment-btn" type="button" data-history-period="all" aria-pressed="false">全部</button>
           <button class="segment-btn" type="button" data-history-period="custom" aria-pressed="false">自定义</button>
         </div>
@@ -975,38 +1008,37 @@
         </form>
         <p class="small" id="historyDateError" role="alert" hidden></p>
       </div>
-      <p class="muted small" id="historyRangeLabel" style="margin:10px 0 8px"></p>
-      <div class="analysis-card">
+
+      <div class="trend-main-chart">
         <div class="history-chart-head"><span class="history-chart-title" id="historyChartTitle">每月消费金额</span><div class="history-trend-switch" role="group" aria-label="趋势汇总维度"><button class="segment-btn active" type="button" data-trend-period="month" aria-pressed="true">按月</button><button class="segment-btn" type="button" data-trend-period="week" aria-pressed="false">按周</button><button class="segment-btn" type="button" data-trend-period="day" aria-pressed="false">按日</button></div></div>
-        <div class="muted small">消费金额不扣退款 · 无消费补零 · 周一至周日</div>
+
         <div class="history-chart-plot" id="historyChart" aria-label="历史消费趋势图"></div>
-        <p id="historyPartialNote" class="muted small"></p>
+
       </div>
-      <div class="summary-grid history-summary" aria-label="所选区间辅助汇总">
-        <div class="summary"><span>区间消费</span><strong id="historyPurchaseTotal">¥0</strong></div>
-        <div class="summary"><span>区间退款</span><strong id="historyRefundTotal">¥0</strong></div>
-        <div class="summary"><span>区间净支出</span><strong id="historyNetTotal">¥0</strong></div>
-      </div>
-      <p class="muted small">退款沿用原账单归属日期。</p>
       <section class="card trend-detail" id="historyBucketDetail" hidden aria-label="所选周期账单">
         <div class="history-chart-head"><h3 id="historyBucketTitle" tabindex="-1"></h3><button class="btn" type="button" id="historyBucketClose">收起</button></div>
         <p id="historyBucketSummary" class="small muted"></p>
         <div id="historyBucketList" class="list"></div>
       </section>
-      <details class="trend-ledger" id="historyLedger">
-        <summary>查看所选区间账单流水</summary>
-        <div class="section-head"><p class="muted small">按日期查看每笔消费与退款</p><button class="btn" data-open="expenseModal"><i data-lucide="plus"></i>记一笔</button></div>
-        <div class="list" id="historyExpenseList"></div>
-      </details>
-      <details class="trend-ledger"><summary>查看近期净支出</summary>
+      <details class="trend-ledger trend-secondary"><summary>区间汇总与完整月比较</summary>
+        <dl class="trend-totals"><div><dt>区间消费</dt><dd id="historyPurchaseTotal"></dd></div><div><dt>退款</dt><dd id="historyRefundTotal"></dd></div><div><dt>净支出</dt><dd id="historyNetTotal"></dd></div></dl>
+        <p id="trendCompleteChange"></p><p id="trendCompleteDates" class="small muted"></p>
+        <p class="small muted">近期净支出</p>
         <div class="summary-grid history-summary">
           <div class="summary"><span>本月净支出</span><strong id="expenseMonthSpent">¥0</strong><small id="billCompareText">含消费与退款</small></div>
           <div class="summary"><span>昨天净支出</span><strong id="todaySpent">¥0</strong></div>
           <div class="summary"><span>本周净支出</span><strong id="weekSpent">¥0</strong></div>
         </div>
       </details>
+      <details class="trend-ledger" id="historyLedger">
+        <summary>查看所选区间账单流水</summary>
+        <div class="section-head"><p class="muted small">按日期查看每笔消费与退款</p><button class="btn" data-open="expenseModal"><i data-lucide="plus"></i>记一笔</button></div>
+        <div class="list" id="historyExpenseList"></div>
       <div class="section-head"><button class="section-toggle" id="toggleAllExpensesBtn" type="button">展开全部历史记录</button></div>
       <div class="list collapsible-section" id="expenseList" hidden></div>
+      </details>
+
+
     </section>
 
     <section class="page" id="page-chat">
@@ -1258,7 +1290,7 @@
   <script src="inventory.js"></script>
   <script src="refunds.js"></script>
   <script src="expenses.js"></script>
-  <script src="selectors.js?v=69"></script>
+  <script src="selectors.js?v=70"></script>
   <script>
     // Keep this namespace stable across HTML releases; the service-worker cache version is independent.
     const STORE_KEY = 'slow-buy-v1';
@@ -2277,22 +2309,23 @@
       const items = [...state.expenses].sort((a,b) => b.date.localeCompare(a.date));
       byId('expenseList').innerHTML = items.length ? items.map(e => expenseHTML(e, true)).join('') : '<div class="empty">各平台的消费都可以记在这里</div>';
     }
-    let historyPeriod = 'twelveMonths';
+    let historyPeriod = 'sixMonths';
     let historyTrendPeriod = 'month';
     let historyCustomRange = null;
     let historyBuckets = [];
     let historySelectedBucket = null;
     function historyComparisonText(comparison) {
-      if (comparison.status === '均无消费') return '均无消费（差额 ¥0）';
-      if (comparison.status === '新增消费') return `新增消费 ${money(comparison.delta)}`;
+      if (comparison.status === '均无消费') return '两个期间均暂无消费记录';
+      if (comparison.status === '新增消费') return `新增消费记录 ${money(comparison.delta)}`;
       if (comparison.status === '持平') return '持平（差额 ¥0，0%）';
       return `${comparison.status} ${money(Math.abs(comparison.delta))}（${Math.abs(comparison.percent).toFixed(1)}%）`;
     }
     function renderMonthlyComparisons() {
       const {toDate, complete} = monthlyTrendComparisons(state.expenses);
       byId('trendCurrentAmount').textContent = money(toDate.current);
-      byId('trendCurrentChange').textContent = `较上月同期：${historyComparisonText(toDate)}`;
-      byId('trendCurrentDates').textContent = `本月 ${trendDateLabel(toDate.range)}；上月同期 ${trendDateLabel(toDate.baseRange)}，消费 ${money(toDate.previous)}`;
+      byId('trendCurrentChange').textContent = toDate.previous > 0 && toDate.delta !== 0 ? `比上月同期${toDate.delta > 0 ? '多' : '少'} ${money(Math.abs(toDate.delta))}，${toDate.delta > 0 ? '增加' : '减少'} ${Math.abs(toDate.percent).toFixed(1)}%` : `较上月同期：${historyComparisonText(toDate)}`;
+      byId('trendCurrentChange').dataset.direction = toDate.delta > 0 ? 'up' : toDate.delta < 0 ? 'down' : 'flat';
+      byId('trendCurrentDates').textContent = `统计截止 ${todayISO()}。本月 ${trendDateLabel(toDate.range)}；上月同期 ${trendDateLabel(toDate.baseRange)}，消费 ${money(toDate.previous)}`;
       byId('trendCompleteChange').textContent = `最近完整月消费 ${money(complete.current)} · 较前一个完整月${historyComparisonText(complete)}`;
       byId('trendCompleteDates').textContent = `${trendDateLabel(complete.range)} 对比 ${trendDateLabel(complete.baseRange)}（${money(complete.previous)}）`;
     }
@@ -2304,7 +2337,7 @@
       byId('historyBucketTitle').textContent = bucket.displayLabel;
       byId('historyBucketSummary').textContent = `${trendDateLabel(bucket)} · 消费 ${money(bucket.value)} · 退款 ${money(bucket.refund)} · 净支出 ${money(bucket.net)} · 购买按金额从高到低，退款在后`;
       const items = trendBucketExpenses(state.expenses, bucket);
-      byId('historyBucketList').innerHTML = items.length ? items.map(item => expenseHTML(item)).join('') : '<div class="empty">这个周期没有消费或退款记录</div>';
+      byId('historyBucketList').innerHTML = items.length ? items.map(item => expenseHTML(item)).join('') : '<div class="empty">这个周期暂无消费或退款记录</div>';
       document.querySelectorAll('[data-chart-index]').forEach(dot => dot.setAttribute('aria-pressed', String(Number(dot.dataset.chartIndex) === index)));
       iconRefresh();
       if (moveFocus) { byId('historyBucketDetail').scrollIntoView({behavior: 'smooth', block: 'nearest'}); byId('historyBucketTitle').focus({preventScroll: true}); }
@@ -2314,40 +2347,41 @@
       const show = dot => {
         const rect = chart.getBoundingClientRect(), dotRect = dot.getBoundingClientRect();
         const bucket = historyBuckets[Number(dot.dataset.chartIndex)];
-        tooltip.textContent = `${bucket.displayLabel} · ${trendDateLabel(bucket)} · 消费 ${money(bucket.value)}`;
+        tooltip.textContent = `${bucket.displayLabel} · ${trendDateLabel(bucket)} · 已记录消费 ${money(bucket.value)}`;
         tooltip.hidden = false;
         tooltip.style.left = `${Math.max(8, Math.min(rect.width - tooltip.offsetWidth - 8, dotRect.left + dotRect.width / 2 - rect.left))}px`;
         tooltip.style.top = `${Math.max(8, dotRect.top - rect.top - tooltip.offsetHeight - 10)}px`;
       };
       chart.onpointermove = event => { const dot = event.target.closest('[data-chart-index]'); if (dot) show(dot); else tooltip.hidden = true; };
       chart.onpointerleave = () => { tooltip.hidden = true; };
-      chart.onfocusin = event => { const dot = event.target.closest('[data-chart-index]'); if (dot) show(dot); };
-      chart.onfocusout = () => { tooltip.hidden = true; };
+      chart.querySelectorAll('[data-chart-index]').forEach(dot => { dot.onfocus = () => show(dot); dot.onblur = () => { tooltip.hidden = true; }; });
       chart.onclick = event => { const dot = event.target.closest('[data-chart-index]'); if (dot) { show(dot); renderHistoryBucket(Number(dot.dataset.chartIndex), true); } };
       chart.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { const dot = event.target.closest('[data-chart-index]'); if (dot) { event.preventDefault(); renderHistoryBucket(Number(dot.dataset.chartIndex), true); } } };
     }
     function renderHistoryChart(period, expenses, range) {
       const chart = byId('historyChart'); const buckets = historyChartBuckets(period, expenses, range);
       historyBuckets = buckets;
-      byId('historyChartTitle').textContent = {day: '每日消费金额', week: '每周消费金额', month: '每月消费金额'}[period];
+      byId('historyChartTitle').textContent = `${dateISO(range.start).replaceAll('-', '.')} — ${dateISO(range.end).replaceAll('-', '.')} · ${{day:'每日',week:'每周',month:'每月'}[period]}消费`;
       byId('historyPartialNote').textContent = buckets.filter(bucket => bucket.partial || bucket.ongoing).map(bucket => `${bucket.displayLabel}：${trendDateLabel(bucket)}`).join('；');
       if (!buckets.length) { chart.innerHTML = '<div class="history-chart-empty">这个区间暂无可展示的周期</div>'; return; }
-      const width = Math.max(640, buckets.length * (period === 'month' ? 76 : 48) + 100), height = 250;
-      const pad = {top: 34, right: 55, bottom: 56, left: 70}, plotWidth = width - pad.left - pad.right, plotHeight = height - pad.top - pad.bottom;
+      const available = Math.max(280, byId('page-expenses').clientWidth);
+      const width = Math.max(available, buckets.length * (period === 'month' ? 38 : 46) + 46), height = 240;
+      const pad = {top: 30, right: 22, bottom: 52, left: 38}, plotWidth = width - pad.left - pad.right, plotHeight = height - pad.top - pad.bottom;
       const max = Math.max(1, buckets.reduce((max, bucket) => Math.max(max, bucket.value), 0));
       const y = value => pad.top + (max - value) / max * plotHeight;
       const x = index => buckets.length === 1 ? pad.left + plotWidth / 2 : pad.left + index / (buckets.length - 1) * plotWidth;
       const points = buckets.map((bucket, index) => `${x(index)},${y(bucket.value)}`).join(' ');
       const labelStep = buckets.length > 16 ? Math.ceil(buckets.length / 12) : 1;
-      const grid = [max, max / 2, 0].map(value => `<line x1="${pad.left}" y1="${y(value)}" x2="${width - pad.right}" y2="${y(value)}" stroke="#dcded8" stroke-dasharray="3 4"/><text x="${pad.left - 8}" y="${y(value) + 4}" text-anchor="end" fill="#70756e" font-size="11">${escapeHTML(money(value))}</text>`).join('');
+      const axisMoney = value => value >= 10000 ? `¥${+(value / 10000).toFixed(1)}万` : value >= 1000 ? `¥${+(value / 1000).toFixed(1)}千` : money(value);
+      const grid = [max, max / 2, 0].map(value => `<line x1="${pad.left}" y1="${y(value)}" x2="${width - pad.right}" y2="${y(value)}" stroke="#e9eeea" stroke-dasharray="3 4"/><text x="${pad.left - 8}" y="${y(value) + 4}" text-anchor="end" fill="#70756e" font-size="11">${escapeHTML(axisMoney(value))}</text>`).join('');
       const labels = buckets.map((bucket, index) => {
         if (index % labelStep && index !== buckets.length - 1 && !bucket.ongoing && !bucket.partial) return '';
         const date = bucket.date;
-        const label = period === 'month' ? `${date.getFullYear()}/${date.getMonth() + 1}` : period === 'week' ? bucket.label : `${date.getMonth() + 1}/${date.getDate()}`;
+        const label = period === 'month' ? `${date.getMonth() + 1}月${index === 0 || date.getMonth() === 0 ? ' /' + String(date.getFullYear()).slice(-2) : ''}` : period === 'week' ? bucket.label : `${date.getMonth() + 1}/${date.getDate()}`;
         return `<text x="${x(index)}" y="${height - 30}" text-anchor="middle" fill="#70756e" font-size="11">${escapeHTML(label)}</text>${bucket.status ? `<text x="${x(index)}" y="${height - 12}" text-anchor="middle" fill="#24734a" font-size="10">${bucket.ongoing ? '进行中' : '不完整'}</text>` : ''}`;
       }).join('');
-      const dots = buckets.map((bucket, index) => `<g class="history-chart-dot" data-chart-index="${index}" tabindex="0" role="button" aria-pressed="false" aria-label="${escapeHTML(bucket.displayLabel)}，${trendDateLabel(bucket)}，消费 ${escapeHTML(money(bucket.value))}，查看账单"><circle cx="${x(index)}" cy="${y(bucket.value)}" r="15" fill="transparent"/><circle class="history-dot-visible" cx="${x(index)}" cy="${y(bucket.value)}" r="${bucket.ongoing ? 5 : 4}" fill="#24734a" pointer-events="none"/><title>${escapeHTML(bucket.displayLabel)}：${trendDateLabel(bucket)}，消费 ${escapeHTML(money(bucket.value))}</title></g>`).join('');
-      const values = buckets.map((bucket, index) => (bucket.value && (index % labelStep === 0 || index === buckets.length - 1)) ? `<text class="history-chart-value-label" x="${x(index)}" y="${Math.max(15, y(bucket.value) - 13)}" text-anchor="middle">${escapeHTML(money(bucket.value))}</text>` : '').join('');
+      const dots = buckets.map((bucket, index) => `<g class="history-chart-dot" data-chart-index="${index}" tabindex="0" role="button" aria-pressed="false" aria-label="${escapeHTML(bucket.displayLabel)}，${trendDateLabel(bucket)}，消费 ${escapeHTML(money(bucket.value))}，查看账单"><circle cx="${x(index)}" cy="${y(bucket.value)}" r="22" fill="transparent"/><circle class="history-dot-visible" cx="${x(index)}" cy="${y(bucket.value)}" r="${bucket.ongoing ? 5 : 4}" fill="#24734a" pointer-events="none"/><title>${escapeHTML(bucket.displayLabel)}：${trendDateLabel(bucket)}，消费 ${escapeHTML(money(bucket.value))}</title></g>`).join('');
+      const values = '';
       chart.innerHTML = `<div class="history-chart-scroll"><svg class="history-chart-svg" style="width:${width}px;height:${height}px" viewBox="0 0 ${width} ${height}" role="group" aria-label="消费金额折线图">${grid}<polyline points="${points}" fill="none" stroke="#24734a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${values}${dots}${labels}</svg></div><div class="history-chart-tooltip" hidden></div>`;
       bindHistoryChartTooltip(chart);
       const scroll = chart.querySelector('.history-chart-scroll');
@@ -3213,6 +3247,31 @@
       const del = e.target.closest('[data-delete-expense]');
       if (del && confirm('删除这笔消费？')) { const deletedId = del.dataset.deleteExpense; const deleted = state.expenses.find(x => x.id === deletedId); if (deleted?.sourceExpenseId && (Number(deleted.amount) < 0 || deleted.kind === 'refund')) { if (deleted.qty == null) openRevokeRefund(deleted); else revokeRefund(deleted, Number(deleted.qty)); return; } const result = transact(draft => ExpenseOps.remove(draft, deletedId)); showToast(result.ok ? '消费记录已删除，关联库存已保留' : result.error?.message || '删除失败'); }
     }));
+    const trendInfoButton = byId('trendInfoButton'), trendInfoPanel = byId('trendInfoPanel');
+    document.body.appendChild(trendInfoPanel);
+    trendInfoButton.setAttribute('aria-describedby', 'trendInfoPanel');
+    let trendInfoPinned = false, trendInfoHideTimer;
+    function deferHideTrendInfo() { clearTimeout(trendInfoHideTimer); trendInfoHideTimer=setTimeout(() => { if(!trendInfoPinned && document.activeElement !== trendInfoButton) showTrendInfo(false); }, 180); }
+    function showTrendInfo(open) {
+      clearTimeout(trendInfoHideTimer);
+      trendInfoPanel.hidden = !open; trendInfoButton.setAttribute('aria-expanded', String(open));
+      if (open) {
+        const rect = trendInfoButton.getBoundingClientRect();
+        trendInfoPanel.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - trendInfoPanel.offsetWidth - 12))}px`;
+        trendInfoPanel.style.top = `${Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - trendInfoPanel.offsetHeight - 12))}px`;
+      }
+    }
+    trendInfoButton.addEventListener('pointerenter', e => {if(e.pointerType === 'mouse') showTrendInfo(true);});
+    trendInfoButton.addEventListener('pointerleave', deferHideTrendInfo);
+    trendInfoPanel.addEventListener('pointerenter', () => clearTimeout(trendInfoHideTimer));
+    trendInfoPanel.addEventListener('pointerleave', deferHideTrendInfo);
+    trendInfoButton.addEventListener('focus', () => showTrendInfo(true));
+    trendInfoButton.addEventListener('blur', () => {if(!trendInfoPinned) showTrendInfo(false);});
+    trendInfoButton.addEventListener('click', () => {trendInfoPinned = !trendInfoPinned; showTrendInfo(trendInfoPinned);});
+    document.addEventListener('pointerdown', e => {if(!trendInfoButton.contains(e.target) && !trendInfoPanel.contains(e.target)) {trendInfoPinned=false;showTrendInfo(false);}});
+    document.addEventListener('keydown', e => {if(e.key === 'Escape') {trendInfoPinned=false;showTrendInfo(false);}});
+    document.addEventListener('focusin', e => { if(!trendInfoButton.contains(e.target) && !trendInfoPanel.contains(e.target)) {trendInfoPinned=false;showTrendInfo(false);} });
+    window.addEventListener('resize', () => { if(!trendInfoPanel.hidden) showTrendInfo(true); if(byId('page-expenses').classList.contains('active')) renderHistory(); });
     document.querySelectorAll('[data-history-period]').forEach(button => button.addEventListener('click', () => {
       const period = button.dataset.historyPeriod;
       byId('historyDateError').hidden = true;
