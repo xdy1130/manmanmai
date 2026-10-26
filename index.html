@@ -45,6 +45,13 @@
     p { margin: 0; }
     .muted { color: var(--muted); }
     .small { font-size: 14px; }
+    .expense-platform-field { display:grid; gap:6px; align-content:start; }
+    .expense-platform-heading { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .expense-platform-add { border:0; padding:2px 0; background:none; color:var(--muted); font-size:13px; }
+    #expensePlatformEditor[hidden] { display:none !important; }
+    #expensePlatformEditor { display:flex; flex-wrap:wrap; align-items:end; gap:8px; }
+    #expensePlatformEditor label { flex:1 1 100px; min-width:0; }
+
     .page { display: none; }
     .page.active { display: block; animation: pageIn .18s ease both; }
     .stack { display: grid; gap: 12px; }
@@ -1204,8 +1211,13 @@
       <div class="modal-head span-2"><h2 id="expenseModalTitle">快速记账</h2><button class="btn btn-icon btn-ghost" type="button" data-close aria-label="关闭"><i data-lucide="x"></i></button></div>
       <label>类型<select id="expenseKind"><option value="expense">消费</option><option value="refund">退款</option></select></label>
       <label>金额（元）<input id="expenseAmount" type="number" inputmode="decimal" min="0" step="0.01" required autofocus placeholder="0.00"></label>
-      <label>平台<select id="expensePlatform"><option>抖音</option><option>淘宝</option><option>京东</option><option>拼多多</option><option>小红书</option><option>其他</option></select></label>
+      <div class="expense-platform-field"><div class="expense-platform-heading"><label for="expensePlatform">平台</label><button class="expense-platform-add" id="expensePlatformAdd" type="button" aria-expanded="false" aria-controls="expensePlatformEditor">＋新增平台</button></div><select id="expensePlatform" aria-label="平台"></select></div>
       <label>分类<select id="expenseCategory" required></select></label>
+      <div class="span-2" id="expensePlatformEditor" hidden>
+        <label for="expensePlatformName">新增生活消费平台<input id="expensePlatformName" maxlength="20" placeholder="例如：盒马、楼下菜店"></label>
+        <button class="btn btn-secondary" id="expensePlatformSave" type="button">添加</button>
+        <button class="btn btn-ghost" id="expensePlatformCancel" type="button">取消</button>
+      </div>
       <label class="span-2">商品名称（可不填）<input id="expenseName" maxlength="40" placeholder="例如：洗发水"></label>
       <label>日期<input id="expenseDate" type="date" required></label>
       <label class="span-2" style="display:flex;align-items:center;gap:10px;font-weight:500"><input id="expenseAddToInventory" type="checkbox" style="width:20px;min-height:20px"> 同时加入库存 <span id="expenseInventoryHint" class="muted small">保存后可补充数量和使用速度</span></label>
@@ -1331,8 +1343,11 @@
     const todayISO = () => dateISO();
     const money = n => `¥${Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
     const uid = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const shoppingExpensePlatforms = ['抖音', '淘宝', '京东', '拼多多', '小红书', '其他'];
+    const lifeExpensePlatforms = ['叮咚买菜', '超市', '水果店', '菜市场'];
     const defaultState = {
       monthlyBudget: 2000,
+      customExpensePlatforms: [],
       hosts: [{ id: 'host-default', name: '我喜欢的主播', perLiveBudget: 500, funBudget: 200, stockCap: 6, sessionSpent: 0, sessionDate: todayISO() }],
       inventory: [],
       inventoryTombstones: {},
@@ -1658,6 +1673,7 @@
         ...localState,
         ...remoteState,
         hosts: mergeById(localState.hosts, remoteState.hosts),
+        customExpensePlatforms: expensePlatformNames(localState.customExpensePlatforms, remoteState.customExpensePlatforms),
         inventory: mergedInventory,
         inventoryTombstones,
         expenses: mergedExpenses,
@@ -1679,6 +1695,7 @@
     }
     function hasPersonalData(snapshot) {
       return Boolean(
+        expensePlatformNames(snapshot.customExpensePlatforms).length ||
         (snapshot.inventory || []).length ||
         (snapshot.expenses || []).length ||
         (snapshot.chatHistory || []).length ||
@@ -2241,11 +2258,50 @@
     }
 
     function renderAll() {
-      renderHostSelect(); renderCategorySelects(); renderSummary(); renderRecent(); renderAttention(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory(); renderWardrobe(); loadInventoryImages();
+      renderExpensePlatforms(); renderHostSelect(); renderCategorySelects(); renderSummary(); renderRecent(); renderAttention(); renderInventory(); renderInventoryInputs(); renderExpenses(); renderHistory(); renderHosts(); renderChatHistory(); renderWardrobe(); loadInventoryImages();
       byId('monthlyBudget').value = state.monthlyBudget;
       setAuthStatus();
       iconRefresh();
     }
+    function expensePlatformNames(...lists) {
+      return [...new Set(lists.flatMap(list => Array.isArray(list) ? list : []).filter(name => typeof name === 'string').map(name => name.trim()).filter(Boolean))];
+    }
+    function renderExpensePlatforms() {
+      const select = byId('expensePlatform');
+      const previous = select.value;
+      const custom = expensePlatformNames(state.customExpensePlatforms).filter(name => !shoppingExpensePlatforms.includes(name) && !lifeExpensePlatforms.includes(name));
+      const options = names => names.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
+      select.innerHTML = `<optgroup label="网购平台">${options(shoppingExpensePlatforms)}</optgroup><optgroup label="生活消费">${options([...lifeExpensePlatforms, ...custom])}</optgroup>`;
+      if ([...select.options].some(option => option.value === previous)) select.value = previous;
+    }
+    function toggleExpensePlatformEditor(open) {
+      byId('expensePlatformEditor').hidden = !open;
+      byId('expensePlatformAdd').setAttribute('aria-expanded', String(open));
+      byId('expensePlatformName').value = '';
+      if (open) byId('expensePlatformName').focus();
+    }
+    function addExpensePlatform() {
+      const name = byId('expensePlatformName').value.trim();
+      if (!name || name.length > 20) { showToast('请输入 1–20 字的平台名称'); byId('expensePlatformName').focus(); return; }
+      const existing = [...byId('expensePlatform').options].some(option => option.value === name);
+      if (!existing) {
+        const saved = transact(draft => { draft.customExpensePlatforms = expensePlatformNames(draft.customExpensePlatforms, [name]); });
+        if (!saved.ok) { showToast('平台保存失败，请重试'); return; }
+      }
+      byId('expensePlatform').value = name;
+      toggleExpensePlatformEditor(false);
+      byId('expensePlatform').focus();
+      showToast(existing ? '已选择已有平台' : '平台已添加');
+    }
+    byId('expensePlatformAdd').addEventListener('click', () => toggleExpensePlatformEditor(byId('expensePlatformEditor').hidden));
+    byId('expensePlatformCancel').addEventListener('click', () => { toggleExpensePlatformEditor(false); byId('expensePlatformAdd').focus(); });
+    byId('expensePlatformSave').addEventListener('click', addExpensePlatform);
+    byId('expensePlatformName').addEventListener('keydown', e => {
+      if (e.isComposing) return;
+      if (e.key === 'Enter') { e.preventDefault(); addExpensePlatform(); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); toggleExpensePlatformEditor(false); byId('expensePlatformAdd').focus(); }
+    });
+    byId('expenseForm').addEventListener('reset', () => toggleExpensePlatformEditor(false));
     function renderCategorySelects() {
       ['decisionCategory', 'expenseCategory'].forEach(id => {
         const select = byId(id); const previous = select.value;
