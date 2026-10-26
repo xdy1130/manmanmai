@@ -1214,7 +1214,7 @@
       <div class="expense-platform-field"><div class="expense-platform-heading"><label for="expensePlatform">平台</label><button class="expense-platform-add" id="expensePlatformAdd" type="button" aria-expanded="false" aria-controls="expensePlatformEditor">＋新增平台</button></div><select id="expensePlatform" aria-label="平台"></select></div>
       <label>分类<select id="expenseCategory" required></select></label>
       <div class="span-2" id="expensePlatformEditor" hidden>
-        <label for="expensePlatformName">新增生活消费平台<input id="expensePlatformName" maxlength="20" placeholder="例如：盒马、楼下菜店"></label>
+        <label for="expensePlatformName">新增平台<input id="expensePlatformName" maxlength="20" placeholder="例如：美团、品牌官网、附近商店"></label>
         <button class="btn btn-secondary" id="expensePlatformSave" type="button">添加</button>
         <button class="btn btn-ghost" id="expensePlatformCancel" type="button">取消</button>
       </div>
@@ -2271,7 +2271,7 @@
       const previous = select.value;
       const custom = expensePlatformNames(state.customExpensePlatforms).filter(name => !shoppingExpensePlatforms.includes(name) && !lifeExpensePlatforms.includes(name));
       const options = names => names.map(name => `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`).join('');
-      select.innerHTML = `<optgroup label="网购平台">${options(shoppingExpensePlatforms)}</optgroup><optgroup label="生活消费">${options([...lifeExpensePlatforms, ...custom])}</optgroup>`;
+      select.innerHTML = `<optgroup label="网购平台">${options(shoppingExpensePlatforms)}</optgroup><optgroup label="生活消费">${options(lifeExpensePlatforms)}</optgroup>${custom.length ? `<optgroup label="自定义平台">${options(custom)}</optgroup>` : ''}`;
       if ([...select.options].some(option => option.value === previous)) select.value = previous;
     }
     function toggleExpensePlatformEditor(open) {
